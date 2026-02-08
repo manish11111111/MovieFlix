@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_splash_modern"
+    tools:context=".LoginActivity">
+
+    <!-- 1. BOTTOM GLOW EFFECT -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="250dp"
+        android:background="@drawable/bg_bottom_glow"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <!-- 2. HEADER CONTAINER -->
+    <LinearLayout
+        android:id="@+id/headerSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <!-- BRANDING ROW -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@drawable/ic_logo_m"
+                android:layout_marginEnd="16dp"
+                app:tint="#FFFFFF"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MovieFlix"
+                android:textColor="#FFFFFF"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.02"
+                android:fontFamily="sans-serif-black"/>
+        </LinearLayout>
+
+        <!-- WELCOME TEXT -->
+        <TextView
+            android:id="@+id/tvWelcome"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Welcome Back,"
+            android:textColor="#FFFFFF"
+            android:textSize="34sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"/>
+
+        <TextView
+            android:id="@+id/tvSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Log in to continue your cinematic journey."
+            android:textColor="#B3B3B3"
+            android:textSize="15sp"
+            android:layout_marginTop="6dp"/>
+
+    </LinearLayout>
+
+    <!-- 3. INPUT FORM -->
+    <LinearLayout
+        android:id="@+id/formContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toBottomOf="@id/headerSection"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- EMAIL INPUT -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Email Address"
+            android:textColorHint="#B3B3B3"
+            app:hintTextColor="#D500F9"
+            app:boxStrokeColor="#D500F9"
+            app:boxStrokeErrorColor="#FF0000"
+            app:boxBackgroundColor="#20FFFFFF"
+            app:boxCornerRadiusTopStart="12dp"
+            app:boxCornerRadiusTopEnd="12dp"
+            app:boxCornerRadiusBottomStart="12dp"
+            app:boxCornerRadiusBottomEnd="12dp"
+            app:boxStrokeWidth="0dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etEmail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textEmailAddress"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- PASSWORD INPUT -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="Password"
+            android:textColorHint="#B3B3B3"
+            app:hintTextColor="#D500F9"
+            app:boxStrokeColor="#D500F9"
+            app:boxStrokeErrorColor="#FF0000"
+            app:boxBackgroundColor="#20FFFFFF"
+            app:boxCornerRadiusTopStart="12dp"
+            app:boxCornerRadiusTopEnd="12dp"
+            app:boxCornerRadiusBottomStart="12dp"
+            app:boxCornerRadiusBottomEnd="12dp"
+            app:boxStrokeWidth="0dp"
+            app:endIconMode="password_toggle"
+            app:endIconTint="#B3B3B3"
+            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etPassword"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- FORGOT PASSWORD -->
+        <TextView
+            android:id="@+id/tvForgotPassword"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Forgot Password?"
+            android:textColor="#B3B3B3"
+            android:layout_marginTop="12dp"
+            android:layout_gravity="end"
+            android:textSize="14sp" />
+
+        <!-- LOGIN BUTTON -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="30dp"
+            android:text="LOG IN"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:background="@drawable/btn_vibrant_gradient"
+            app:backgroundTint="@null"
+            android:elevation="12dp"
+            android:stateListAnimator="@null"
+            android:outlineSpotShadowColor="#D500F9"
+            android:outlineAmbientShadowColor="#D500F9"
+            tools:targetApi="p" />
+
+
+    </LinearLayout>
+
+    <!-- SIGN UP LINK -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="30dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="New to MovieFlix? "
+            android:textColor="#B3B3B3" />
+
+        <TextView
+            android:id="@+id/tvSignUp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sign up now."
+            android:textStyle="bold"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <!-- LOADER (UPDATED POSITION) -->
+    <!-- Constrained exactly to the Login Button's position -->
+    <ProgressBar
+        android:id="@+id/loginProgressBar"
+        android:layout_width="35dp"
+        android:layout_height="35dp"
+        android:visibility="gone"
+        android:indeterminateTint="#D500F9"
+        android:elevation="20dp"
+        app:layout_constraintBottom_toBottomOf="@+id/formContainer"
+        app:layout_constraintStart_toStartOf="@+id/formContainer"
+        app:layout_constraintEnd_toEndOf="@+id/formContainer"
+        app:layout_constraintTop_toTopOf="@+id/formContainer"
+        app:layout_constraintVertical_bias="0.88" />
+    <!-- Note: I used bias/formContainer here as backup, but simpler is: -->
+    <!-- app:layout_constraintBottom_toBottomOf="@+id/btnLogin" -->
+    <!-- app:layout_constraintTop_toTopOf="@+id/btnLogin" -->
+    <!-- app:layout_constraintStart_toStartOf="@+id/btnLogin" -->
+    <!-- app:layout_constraintEnd_toEndOf="@+id/btnLogin" -->
+
+</androidx.constraintlayout.widget.ConstraintLayout>

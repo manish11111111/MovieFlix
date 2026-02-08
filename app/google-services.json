@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "609364353852",
+    "project_id": "movieflix-fb904",
+    "storage_bucket": "movieflix-fb904.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:609364353852:android:2e32f4ff692be0c6393439",
+        "android_client_info": {
+          "package_name": "com.manish.demo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-XqfeRoM09kRyUL2cj2o6vqYELo-gAjQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

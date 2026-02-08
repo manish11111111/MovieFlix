@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <!-- Sharp, Vibrant Gradient -->
+    <gradient
+        android:angle="45"
+        android:startColor="#AA00FF"
+        android:centerColor="#D500F9"
+        android:endColor="#FF4081"
+        android:type="linear" />
+
+    <!-- Rounded Corners (Pill shape) -->
+    <corners android:radius="32dp" />
+
+</shape>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- SELECTED DOT (Active) -->
+    <!-- Size reduced to 4dp (Tiny White Circle) -->
+    <item android:state_selected="true">
+        <layer-list>
+            <item android:gravity="center">
+                <shape android:shape="oval">
+                    <solid android:color="#FFFFFF"/>
+                    <size android:width="5dp" android:height="5dp"/>
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <!-- UNSELECTED DOT (Inactive) -->
+    <!-- Size reduced to 3dp (Tiny Gray Spec) -->
+    <item>
+        <layer-list>
+            <item android:gravity="center">
+                <shape android:shape="oval">
+                    <solid android:color="#80FFFFFF"/>
+                    <size android:width="3dp" android:height="3dp"/>
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+</selector>
