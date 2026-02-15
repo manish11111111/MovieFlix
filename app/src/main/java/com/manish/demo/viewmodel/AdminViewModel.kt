@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-
+import android.util.Log
+import kotlinx.coroutines.flow.asStateFlow
+import  com.google.firebase.auth.FirebaseAuth
 class AdminViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val API_KEY = "4afb7f0966d309df22cf149c7ee24726" // Replace with your real key
@@ -56,15 +58,19 @@ class AdminViewModel : ViewModel() {
     fun uploadMovie(
         tmdbMovie: TmdbMovieDto,
         streamUrl: String,
-        tmdbGenres: List<String>, // <--- Change this to a List
-        onComplete: () -> Unit
+        tmdbGenres: List<String>,
+        onComplete: (Boolean, String) -> Unit // Updated to pass back status and message
     ) {
         viewModelScope.launch {
             isLoading.value = true
             try {
+                // 1. Fetch Trailer
                 val videoRes = RetrofitClient.instance.getMovieVideos(tmdbMovie.id, API_KEY)
-                val trailerKey = videoRes.results.find { it.site == "YouTube" && it.type == "Trailer" }?.key ?: ""
+                val trailerKey = videoRes.results.find {
+                    it.site == "YouTube" && it.type == "Trailer"
+                }?.key ?: ""
 
+                // 2. Prepare Map
                 val movieMap = hashMapOf(
                     "tmdbId" to tmdbMovie.id,
                     "title" to tmdbMovie.title,
@@ -73,15 +79,24 @@ class AdminViewModel : ViewModel() {
                     "backdrop" to "https://image.tmdb.org/t/p/w780${tmdbMovie.backdropPath}",
                     "streamUrl" to streamUrl,
                     "trailerUrl" to "https://www.youtube.com/watch?v=$trailerKey",
-                    "genres" to tmdbGenres, // <--- Save the whole list to Firebase
+                    "genres" to tmdbGenres,
                     "rating" to tmdbMovie.rating,
                     "timestamp" to System.currentTimeMillis()
                 )
 
+                // 3. Save to Firebase
                 db.collection("movies").add(movieMap).await()
-                onComplete()
-            } catch (e: Exception) { e.printStackTrace() }
-            finally { isLoading.value = false }
+
+                // 4. TRIGGER SUCCESS CALLBACK
+                onComplete(true, "Movie '${tmdbMovie.title}' published successfully!")
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // 5. TRIGGER FAILURE CALLBACK (So the loader stops!)
+                onComplete(false, "Failed to publish: ${e.localizedMessage ?: "Unknown Error"}")
+            } finally {
+                isLoading.value = false
+            }
         }
     }
 
@@ -123,5 +138,72 @@ class AdminViewModel : ViewModel() {
     fun isMovieInLibrary(tmdbId: Int): Boolean {
         // We check the 'existingMovies' list that we are already fetching from Firebase
         return existingMovies.value.any { it["tmdbId"].toString() == tmdbId.toString() }
+    }
+    // Inside AdminViewModel.kt
+    private val _allUsers = MutableStateFlow<List<Map<String, Any>>>(emptyList())
+    val allUsers: StateFlow<List<Map<String, Any>>> = _allUsers.asStateFlow()
+
+    fun fetchUsers() {
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+
+        db.collection("users").addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.e("AdminVM", "Error: ${error.message}")
+                return@addSnapshotListener
+            }
+
+            if (snapshot != null) {
+                val list = snapshot.documents.mapNotNull { doc ->
+                    val uid = doc.id
+                    // Hide current admin from the list for safety
+                    if (uid == myUid) {
+                        null
+                    } else {
+                        doc.data?.plus("uid" to uid)
+                    }
+                }
+                _allUsers.value = list
+            }
+        }
+    }
+    // --- TOGGLE ADMIN STATUS ---
+    fun toggleAdminStatus(userId: String, isCurrentlyAdmin: Boolean, onComplete: (String) -> Unit) {
+        val newRole = if (isCurrentlyAdmin) "USER" else "admin"
+        db.collection("users").document(userId)
+            .update("role", newRole)
+            .addOnSuccessListener {
+                onComplete(if (isCurrentlyAdmin) "User demoted to regular user" else "User promoted to Admin")
+            }
+            .addOnFailureListener { onComplete("Error: Could not update role") }
+    }
+
+    fun toggleBanStatus(userId: String, isCurrentlyBanned: Boolean, onComplete: (String) -> Unit) {
+        val newStatus = !isCurrentlyBanned
+        db.collection("users").document(userId)
+            .update("isBanned", newStatus)
+            .addOnSuccessListener {
+                onComplete(if (newStatus) "User banned successfully" else "User unbanned successfully")
+            }
+            .addOnFailureListener { onComplete("Error: Could not update ban status") }
+    }
+    // Inside AdminViewModel.kt (or create an AuthViewModel)
+    private val _userRole = MutableStateFlow<String?>(null)
+    val userRole: StateFlow<String?> = _userRole.asStateFlow()
+
+    fun checkUserRole() {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid != null) {
+            FirebaseFirestore.getInstance().collection("users").document(uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    val role = document.getString("role") // Matches your "admin" or "user" logic
+                    _userRole.value = role
+                }
+                .addOnFailureListener {
+                    _userRole.value = "error"
+                }
+        } else {
+            _userRole.value = "unauthenticated"
+        }
     }
 }

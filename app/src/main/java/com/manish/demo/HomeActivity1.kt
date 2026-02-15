@@ -125,11 +125,58 @@ class HomeActivity1 : ComponentActivity() {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Log.e("HomeActivity1", "Uncaught exception in thread: ${thread.name}", throwable)
         }
-
+        listenForBanStatus()
+        listenForAccountChanges()
         fetchUserData()
         fetchMovies()
     }
+    private var currentRole: String? = null // To track the role locally
 
+    private fun listenForAccountChanges() {
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null) {
+            FirebaseFirestore.getInstance().collection("users").document(user.uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) return@addSnapshotListener
+
+                    if (snapshot != null && snapshot.exists()) {
+                        val roleInDb = snapshot.getString("role") ?: "USER"
+                        val isBanned = snapshot.getBoolean("isBanned") ?: false
+
+                        // 1. Check for Ban (Already implemented, but good to keep together)
+                        if (isBanned) {
+                            showAccountDialog("Account Banned", "Your account has been banned. You will be logged out.")
+                            return@addSnapshotListener
+                        }
+
+                        // 2. Check for Role Change
+                        if (currentRole == null) {
+                            currentRole = roleInDb // Set the initial role when app starts
+                        } else if (!currentRole.equals(roleInDb, ignoreCase = true)) {
+                            // If currentRole is "USER" and roleInDb becomes "admin"
+                            showAccountDialog("Role Updated", "Your access level has changed. Please login again to access your new features.")
+                        }
+                    }
+                }
+        }
+    }
+
+    private fun showAccountDialog(title: String, message: String) {
+        if (!isFinishing) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton("OK") { _, _ ->
+                    FirebaseAuth.getInstance().signOut()
+                    val intent = Intent(this, LoginActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                    finish()
+                }
+                .show()
+        }
+    }
     private fun fetchUserData() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
         if (userId != null) {
@@ -222,7 +269,46 @@ class HomeActivity1 : ComponentActivity() {
                 isLoadingMovies = false
             }
     }
+    private fun listenForBanStatus() {
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null) {
+            // Listen to the current user's document in Firestore
+            FirebaseFirestore.getInstance().collection("users").document(user.uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) return@addSnapshotListener
 
+                    if (snapshot != null && snapshot.exists()) {
+                        val isBanned = snapshot.getBoolean("isBanned") ?: false
+
+                        // If the admin switched isBanned to true, kick them out!
+                        if (isBanned) {
+                            showBanDialogAndLogout()
+                        }
+                    }
+                }
+        }
+    }
+
+    private fun showBanDialogAndLogout() {
+        // Only show if the activity is not currently finishing
+        if (!isFinishing) {
+            val builder = android.app.AlertDialog.Builder(this)
+            builder.setTitle("Account Banned")
+            builder.setMessage("Your account has been banned by the administrator. You will be logged out now.")
+            builder.setCancelable(false) // Force the user to click OK
+            builder.setPositiveButton("OK") { _, _ ->
+                // 1. Clear session
+                FirebaseAuth.getInstance().signOut()
+
+                // 2. Go to login and clear activity stack
+                val intent = Intent(this, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            }
+            builder.show()
+        }
+    }
     private fun updateUI() {
         try {
             setContent {

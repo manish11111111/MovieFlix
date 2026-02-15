@@ -1,5 +1,7 @@
 package com.manish.demo
 
+import androidx.compose.ui.platform.LocalContext
+
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -56,6 +58,7 @@ import com.google.firebase.firestore.Source
 import com.manish.demo.ui.admin.MoviesManagementScreen
 import com.manish.demo.ui.ChangePasswordDialog
 import com.manish.demo.ui.InfoRow
+import com.manish.demo.ui.admin.UsersManagementScreen
 import com.manish.demo.ui.components.CustomToastCompose
 import com.manish.demo.ui.components.ImageSelectionDialog
 import com.manish.demo.ui.theme.DemoTheme
@@ -89,6 +92,7 @@ class AdminHomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        listenForRoleSecurity()
         fetchAdminData()
     }
 
@@ -195,7 +199,43 @@ class AdminHomeActivity : ComponentActivity() {
                 .addOnFailureListener { isUploadingImage = false; updateUI() }
         }
     }
+    private var initialRole: String? = null
 
+    private fun listenForRoleSecurity() {
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null) {
+            FirebaseFirestore.getInstance().collection("users").document(user.uid)
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot != null && snapshot.exists()) {
+                        val role = snapshot.getString("role") ?: "USER"
+
+                        if (initialRole == null) {
+                            initialRole = role
+                        } else if (!initialRole.equals(role, ignoreCase = true)) {
+                            // This triggers if an Admin is demoted to User
+                            showSecurityDialog()
+                        }
+                    }
+                }
+        }
+    }
+
+    private fun showSecurityDialog() {
+        if (!isFinishing) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Permissions Changed")
+                .setMessage("Your administrative roles have been updated. Please login again.")
+                .setCancelable(false)
+                .setPositiveButton("LOGIN") { _, _ ->
+                    FirebaseAuth.getInstance().signOut()
+                    val intent = Intent(this, LoginActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                    finish()
+                }
+                .show()
+        }
+    }
     private fun checkPermission(permission: String) = ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     private fun requestPermission(permission: String, code: Int) = ActivityCompat.requestPermissions(this, arrayOf(permission), code)
 }
@@ -204,6 +244,7 @@ enum class AdminDestinations(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Default.Home),
     MOVIES("Movies", Icons.Default.Movie),
     USERS("Users", Icons.Default.Person),
+    SUBSCRIPTIONS("Subs", Icons.Default.Subscriptions), // ADD THIS
     PROFILE("Profile", Icons.Default.AccountCircle),
 }
 
@@ -306,6 +347,7 @@ fun AdminApp(
                 when (currentDestination) {
                     AdminDestinations.HOME -> AdminHomeContent(adminName)
                     AdminDestinations.MOVIES -> MoviesManagementScreen(viewModel = adminViewModel, modifier = Modifier.fillMaxSize())
+                    AdminDestinations.USERS -> UsersManagementScreen(viewModel = adminViewModel, modifier = Modifier.fillMaxSize())
                     AdminDestinations.PROFILE -> AdminProfileContent(
                         adminName, adminEmail, adminPhone, adminDob, adminImageBitmap,
                         passwordLastUpdated, isUploadingImage, { showImageDialog = true },
@@ -336,8 +378,17 @@ fun AdminApp(
         }
 
         if (passwordDialogOpen) {
-            ChangePasswordDialog(onDismiss = { passwordDialogOpen = false }, onPasswordChanged = { passwordDialogOpen = false; onRefresh() })
+            ChangePasswordDialog(
+                onDismiss = { passwordDialogOpen = false },
+                onPasswordChanged = { message ->
+                    passwordDialogOpen = false        // close dialog
+                    toastMessage = message            // set toast message
+                    showCustomToast = true            // show custom toast
+                    onRefresh()                       // refresh profile data
+                }
+            )
         }
+
     }
 }
 
@@ -371,6 +422,7 @@ fun AdminProfileContent(
     onPasswordChangeClicked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -403,7 +455,21 @@ fun AdminProfileContent(
 
         Spacer(Modifier.height(16.dp))
         Text(adminName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        Text("Administrator", fontSize = 14.sp, color = Color.LightGray)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.AdminPanelSettings,
+                contentDescription = "Role",
+                tint = Color.Blue,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Administrator",
+                fontSize = 14.sp,
+                color = Color.LightGray
+            )
+        }
+
         Spacer(Modifier.height(32.dp))
 
         Card(
@@ -434,13 +500,40 @@ fun AdminProfileContent(
 
         Spacer(Modifier.height(32.dp))
         Button(
-            onClick = { FirebaseAuth.getInstance().signOut() },
+            onClick = {
+                // Sign out
+                FirebaseAuth.getInstance().signOut()
+
+                // Use the context to navigate and CLEAR the app's memory (prevents freeze)
+                val intent = Intent(context, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                context.startActivity(intent)
+                (context as Activity).finish()
+            },
             modifier = Modifier.fillMaxWidth().height(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(0.7f))
         ) {
-            Text("Logout", color = Color.White)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Logout,
+                    contentDescription = "Logout",
+                    tint = Color.White
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = "Logout",
+                    color = Color.White
+                )
+            }
+
         }
     }
+
 }
 
 

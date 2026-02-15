@@ -48,6 +48,20 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        fun listenForBanStatus() {
+            val user = FirebaseAuth.getInstance().currentUser
+            if (user != null) {
+                FirebaseFirestore.getInstance().collection("users").document(user.uid)
+                    .addSnapshotListener { snapshot, error ->
+                        if (snapshot != null && snapshot.exists()) {
+                            val isBanned = snapshot.getBoolean("isBanned") ?: false
+                            if (isBanned) {
+                                showBanDialogAndLogout()
+                            }
+                        }
+                    }
+            }
+        }
 
         // 1. Initialize Views
         logoContainer = findViewById(R.id.logoContainer)
@@ -141,15 +155,25 @@ class MainActivity : AppCompatActivity() {
             if (currentUser == null) {
                 navigateTo(LoginActivity::class.java)
             } else {
-                // Force a server read to get the latest role
+                // Force a server read to check for the ban
                 db.collection("users").document(currentUser.uid).get(Source.SERVER)
                     .addOnSuccessListener { document ->
                         if (document != null && document.exists()) {
+
+                            // --- BAN CHECK ---
+                            val isBanned = document.getBoolean("isBanned") ?: false
+                            if (isBanned) {
+                                auth.signOut()
+                                Toast.makeText(this, "Account Banned: Access Revoked.", Toast.LENGTH_LONG).show()
+                                navigateTo(LoginActivity::class.java)
+                                return@addOnSuccessListener
+                            }
+
                             val profileCompleted = document.getBoolean("profileCompleted") ?: false
                             val role = document.getString("role") ?: "USER"
 
                             if (profileCompleted) {
-                                if (role == "ADMIN") {
+                                if (role.equals("admin", ignoreCase = true)) {
                                     navigateTo(AdminHomeActivity::class.java)
                                 } else {
                                     navigateTo(HomeActivity1::class.java)
@@ -158,17 +182,34 @@ class MainActivity : AppCompatActivity() {
                                 navigateTo(CompleteProfileActivity::class.java)
                             }
                         } else {
-                             navigateTo(CompleteProfileActivity::class.java)
+                            navigateTo(CompleteProfileActivity::class.java)
                         }
                     }
                     .addOnFailureListener {
-                        Toast.makeText(this, "Connection Error. Please try again.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Connection Error.", Toast.LENGTH_SHORT).show()
                         navigateTo(LoginActivity::class.java)
                     }
             }
         }
     }
-
+    private fun showBanDialogAndLogout() {
+        // Show a native Alert Dialog
+        if (!isFinishing) {
+            val builder = android.app.AlertDialog.Builder(this)
+            builder.setTitle("Account Banned")
+            builder.setMessage("Your account has been banned by the administrator. You will be logged out now.")
+            builder.setCancelable(false) // User must click OK
+            builder.setPositiveButton("OK") { _, _ ->
+                // Sign out and clear everything
+                FirebaseAuth.getInstance().signOut()
+                val intent = Intent(this, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            }
+            builder.show()
+        }
+    }
     private fun <T> navigateTo(activityClass: Class<T>) {
         val intent = Intent(this, activityClass)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

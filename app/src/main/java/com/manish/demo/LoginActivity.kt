@@ -68,16 +68,29 @@ class LoginActivity : AppCompatActivity() {
         progressBar?.visibility = View.VISIBLE
         btnLogin?.visibility = View.INVISIBLE
 
-        // Force a server read to get the latest role
+        // Force Source.SERVER so a banned user can't use cached data to sneak in
         db.collection("users").document(userId).get(Source.SERVER)
             .addOnSuccessListener { document ->
+                if (isFinishing || isDestroyed) return@addOnSuccessListener
+
                 progressBar?.visibility = View.GONE
+
                 if (document.exists()) {
-                    val isProfileCompleted = document.getBoolean("profileCompleted") ?: false
+                    // --- BAN CHECK ---
+                    val isBanned = document.getBoolean("isBanned") ?: false
+                    if (isBanned) {
+                        auth.signOut() // Clear the session
+                        showCustomDialog(false, "Access Denied: Your account has been banned by the administrator.")
+                        btnLogin?.visibility = View.VISIBLE // Bring back login button
+                        return@addOnSuccessListener
+                    }
+
                     val role = document.getString("role") ?: "USER"
+                    val isProfileCompleted = document.getBoolean("profileCompleted") ?: false
 
                     if (isProfileCompleted) {
-                        if (role == "ADMIN") {
+                        // Match "admin" or "ADMIN"
+                        if (role.equals("admin", ignoreCase = true)) {
                             navigateToAdmin()
                         } else {
                             navigateToMain()
@@ -90,6 +103,7 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
             .addOnFailureListener { e ->
+                if (isFinishing || isDestroyed) return@addOnFailureListener
                 progressBar?.visibility = View.GONE
                 btnLogin?.visibility = View.VISIBLE
                 showCustomDialog(false, "Connection Error: ${e.message}")
@@ -245,14 +259,21 @@ class LoginActivity : AppCompatActivity() {
                 auth.createUserWithEmailAndPassword(email, password)
                     .addOnSuccessListener { result ->
                         val userId = result.user?.uid
-                        val userMap = hashMapOf("email" to email, "profileCompleted" to false, "role" to "USER")
+
+                        // --- UPDATED USER MAP WITH isBanned FIELD ---
+                        val userMap = hashMapOf(
+                            "email" to email,
+                            "profileCompleted" to false,
+                            "role" to "USER",
+                            "isBanned" to false // New default value
+                        )
 
                         if (userId != null) {
                             db.collection("users").document(userId).set(userMap)
                                 .addOnSuccessListener {
                                     auth.signOut()
                                     bottomSheetDialog.dismiss()
-                                    
+
                                     Handler(Looper.getMainLooper()).postDelayed({
                                         showCustomDialog(true, "Account created successfully!") {
                                             etEmail?.setText(email)
