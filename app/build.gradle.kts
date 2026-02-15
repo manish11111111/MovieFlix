@@ -7,15 +7,23 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("C:\\Users\\Admin\\.android\\debug.keystore")
+            storePassword = "android"
+            keyAlias = "AndroidDebugKey"
+            keyPassword = "android"
+        }
+    }
     namespace = "com.manish.demo"
     compileSdk {
-        version = release(36)
+        version = release(34)
     }
 
     defaultConfig {
         applicationId = "com.manish.demo"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -23,6 +31,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -49,6 +60,20 @@ android {
 }
 
 dependencies {
+    dependencies {
+        implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+
+        // Networking
+        implementation ("com.squareup.retrofit2:retrofit:2.9.0")
+        implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
+
+        // Image Loading (For Posters)
+        implementation ("io.coil-kt:coil-compose:2.4.0") // If using Compose
+        // OR implementation "io.coil-kt:coil:2.4.0" // If using XML
+
+        // Coroutines for background tasks
+        implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    }
     // ✅ Firebase BOM (Bill of Materials) - manages compatible versions
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))  // Updated
 
