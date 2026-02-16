@@ -2,10 +2,14 @@ package com.manish.demo
 
 import android.animation.ObjectAnimator
 import android.app.Dialog
+import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -15,6 +19,7 @@ import android.view.Window
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -22,12 +27,13 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
+import com.google.firebase.firestore.DocumentSnapshot
 
 class LoginActivity : AppCompatActivity() {
 
-    // UI Variables
     private var tilEmail: TextInputLayout? = null
     private var etEmail: TextInputEditText? = null
     private var tilPassword: TextInputLayout? = null
@@ -36,7 +42,6 @@ class LoginActivity : AppCompatActivity() {
     private var tvSignUp: TextView? = null
     private var progressBar: ProgressBar? = null
 
-    // Firebase
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
 
@@ -47,11 +52,6 @@ class LoginActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
 
-        val currentUser = auth.currentUser
-        if (currentUser != null) {
-            checkUserStatusAndRedirect(currentUser.uid)
-        }
-
         tilEmail = findViewById(R.id.tilEmail)
         etEmail = findViewById(R.id.etEmail)
         tilPassword = findViewById(R.id.tilPassword)
@@ -60,137 +60,63 @@ class LoginActivity : AppCompatActivity() {
         tvSignUp = findViewById(R.id.tvSignUp)
         progressBar = findViewById(R.id.loginProgressBar)
 
+        if (auth.currentUser != null) checkUserStatusAndRedirect(auth.currentUser!!.uid)
+
         btnLogin?.setOnClickListener { validateAndLogin() }
         tvSignUp?.setOnClickListener { showSignUpBottomSheet() }
     }
 
     private fun checkUserStatusAndRedirect(userId: String) {
-        progressBar?.visibility = View.VISIBLE
-        btnLogin?.visibility = View.INVISIBLE
-
-        // Force Source.SERVER so a banned user can't use cached data to sneak in
-        db.collection("users").document(userId).get(Source.SERVER)
-            .addOnSuccessListener { document ->
-                if (isFinishing || isDestroyed) return@addOnSuccessListener
-
-                progressBar?.visibility = View.GONE
-
-                if (document.exists()) {
-                    // --- BAN CHECK ---
-                    val isBanned = document.getBoolean("isBanned") ?: false
-                    if (isBanned) {
-                        auth.signOut() // Clear the session
-                        showCustomDialog(false, "Access Denied: Your account has been banned by the administrator.")
-                        btnLogin?.visibility = View.VISIBLE // Bring back login button
-                        return@addOnSuccessListener
-                    }
-
-                    val role = document.getString("role") ?: "USER"
-                    val isProfileCompleted = document.getBoolean("profileCompleted") ?: false
-
-                    if (isProfileCompleted) {
-                        // Match "admin" or "ADMIN"
-                        if (role.equals("admin", ignoreCase = true)) {
-                            navigateToAdmin()
+        setLoginLoading(true)
+        db.collection("users").document(userId).get()
+            .addOnCompleteListener { task ->
+                setLoginLoading(false)
+                if (task.isSuccessful) {
+                    val doc = task.result
+                    if (doc != null && doc.exists()) {
+                        if (doc.getBoolean("isBanned") == true) {
+                            auth.signOut()
+                            showCustomDialog(false, "Access Denied: You are banned.")
                         } else {
-                            navigateToMain()
+                            val role = doc.getString("role") ?: "USER"
+                            val isCompleted = doc.getBoolean("profileCompleted") ?: false
+                            when {
+                                !isCompleted -> navigateToCompleteProfile()
+                                role.equals("admin", true) -> navigateToAdmin()
+                                else -> navigateToMain()
+                            }
                         }
-                    } else {
-                        navigateToCompleteProfile()
-                    }
-                } else {
-                    navigateToCompleteProfile()
-                }
-            }
-            .addOnFailureListener { e ->
-                if (isFinishing || isDestroyed) return@addOnFailureListener
-                progressBar?.visibility = View.GONE
-                btnLogin?.visibility = View.VISIBLE
-                showCustomDialog(false, "Connection Error: ${e.message}")
+                    } else navigateToCompleteProfile()
+                } else handleFailure(task.exception?.message ?: "Connection Error")
             }
     }
 
-    private fun showCustomDialog(isSuccess: Boolean, message: String, action: (() -> Unit)? = null) {
-        runOnUiThread {
-            if (isFinishing || isDestroyed) return@runOnUiThread
-
-            val dialog = Dialog(this@LoginActivity)
-            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-            dialog.setContentView(R.layout.dialog_custom_message)
-
-            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-
-            val ivIcon = dialog.findViewById<ImageView>(R.id.ivDialogIcon)
-            val tvTitle = dialog.findViewById<TextView>(R.id.tvDialogTitle)
-            val tvMessage = dialog.findViewById<TextView>(R.id.tvDialogMessage)
-            val btnOk = dialog.findViewById<MaterialButton>(R.id.btnDialogOk)
-
-            ivIcon.clearColorFilter()
-            tvMessage.text = message
-
-            if (isSuccess) {
-                tvTitle.text = "Success!"
-                tvTitle.setTextColor(Color.parseColor("#4CAF50"))
-                ivIcon.setImageResource(R.drawable.ic_success_check)
-                btnOk.text = "LOGIN"
-                btnOk.setBackgroundColor(Color.parseColor("#4CAF50"))
-            } else {
-                tvTitle.text = "Failed"
-                tvTitle.setTextColor(Color.parseColor("#F44336"))
-                ivIcon.setImageResource(R.drawable.ic_error_x)
-                btnOk.text = "TRY AGAIN"
-                btnOk.setBackgroundColor(Color.parseColor("#F44336"))
-            }
-
-            btnOk.setOnClickListener {
-                dialog.dismiss()
-                action?.invoke()
-            }
-
-            dialog.show()
-        }
+    private fun setLoginLoading(isLoading: Boolean) {
+        progressBar?.visibility = if (isLoading) View.VISIBLE else View.GONE
+        btnLogin?.visibility = if (isLoading) View.INVISIBLE else View.VISIBLE
+        tilEmail?.isEnabled = !isLoading
+        tilPassword?.isEnabled = !isLoading
     }
 
     private fun validateAndLogin() {
         val email = etEmail?.text.toString().trim()
         val password = etPassword?.text.toString().trim()
-        var isValid = true
 
         tilEmail?.error = null
         tilPassword?.error = null
 
-        if (email.isEmpty()) { tilEmail?.error = "Required"; isValid = false }
-        if (password.isEmpty()) { tilPassword?.error = "Required"; isValid = false }
+        if (email.isEmpty()) { tilEmail?.error = "Required"; return }
+        if (password.isEmpty()) { tilPassword?.error = "Required"; return }
 
-        if (isValid) {
-            performLogin(email, password)
-        } else {
-            shakeView(btnLogin!!)
-        }
-    }
-
-    private fun performLogin(email: String, pass: String) {
-        btnLogin?.visibility = View.INVISIBLE
-        progressBar?.visibility = View.VISIBLE
-        tilEmail?.isEnabled = false
-        tilPassword?.isEnabled = false
-
-        auth.signInWithEmailAndPassword(email, pass)
-            .addOnSuccessListener { result ->
-                val userId = result.user?.uid
-                if (userId != null) {
-                    checkUserStatusAndRedirect(userId)
+        setLoginLoading(true)
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) checkUserStatusAndRedirect(auth.currentUser!!.uid)
+                else {
+                    setLoginLoading(false)
+                    showCustomDialog(false, task.exception?.message ?: "Login Failed")
+                    shakeView(btnLogin!!)
                 }
-            }
-            .addOnFailureListener { e ->
-                progressBar?.visibility = View.GONE
-                btnLogin?.visibility = View.VISIBLE
-                tilEmail?.isEnabled = true
-                tilPassword?.isEnabled = true
-
-                showCustomDialog(false, e.message ?: "Authentication failed.")
-                shakeView(btnLogin!!)
             }
     }
 
@@ -202,132 +128,178 @@ class LoginActivity : AppCompatActivity() {
         bottomSheetDialog.window?.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
             ?.setBackgroundResource(android.R.color.transparent)
 
-        bottomSheetDialog.setOnShowListener { dialog ->
-            val d = dialog as BottomSheetDialog
-            val bottomSheet = d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bottomSheet?.let { sheet ->
-                val layoutParams = sheet.layoutParams
-                layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                sheet.layoutParams = layoutParams
-                val behavior = BottomSheetBehavior.from(sheet)
+        bottomSheetDialog.setOnShowListener {
+            val d = it as BottomSheetDialog
+            val sheet = d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            sheet?.let { s ->
+                val behavior = BottomSheetBehavior.from(s)
                 behavior.state = BottomSheetBehavior.STATE_EXPANDED
                 behavior.skipCollapsed = true
             }
         }
 
+        // --- INITIALIZE VIEWS ---
         val btnClose = view.findViewById<ImageView>(R.id.btnClose)
         val btnGetStarted = view.findViewById<MaterialButton>(R.id.btnGetStarted)
         val signUpProgressBar = view.findViewById<ProgressBar>(R.id.signUpProgressBar)
-
-        val etSheetEmail = view.findViewById<TextInputEditText>(R.id.etSheetEmail)
         val tilSheetEmail = view.findViewById<TextInputLayout>(R.id.tilSheetEmail)
-        val etSheetPassword = view.findViewById<TextInputEditText>(R.id.etSheetPassword)
+        val etSheetEmail = view.findViewById<TextInputEditText>(R.id.etSheetEmail)
         val tilSheetPassword = view.findViewById<TextInputLayout>(R.id.tilSheetPassword)
-        val etSheetConfirmPassword = view.findViewById<TextInputEditText>(R.id.etSheetConfirmPassword)
+        val etSheetPassword = view.findViewById<TextInputEditText>(R.id.etSheetPassword)
         val tilSheetConfirmPassword = view.findViewById<TextInputLayout>(R.id.tilSheetConfirmPassword)
+        val etSheetConfirmPassword = view.findViewById<TextInputEditText>(R.id.etSheetConfirmPassword)
 
+        // --- APPLY ROUNDED CORNERS USING setBoxCornerRadii() ---
+        val cornerRadius = 15f // 15dp corner radius
+
+        // Apply to all three fields
+        tilSheetEmail.setBoxCornerRadii(cornerRadius, cornerRadius, cornerRadius, cornerRadius)
+        tilSheetPassword.setBoxCornerRadii(cornerRadius, cornerRadius, cornerRadius, cornerRadius)
+        tilSheetConfirmPassword.setBoxCornerRadii(cornerRadius, cornerRadius, cornerRadius, cornerRadius)
+
+        // --- STYLING ---
         val blackColor = ColorStateList.valueOf(Color.BLACK)
-        tilSheetEmail.defaultHintTextColor = blackColor
-        tilSheetPassword.defaultHintTextColor = blackColor
-        tilSheetConfirmPassword.defaultHintTextColor = blackColor
-        etSheetEmail.setTextColor(Color.BLACK)
-        etSheetPassword.setTextColor(Color.BLACK)
-        etSheetConfirmPassword.setTextColor(Color.BLACK)
-        tilSheetPassword.setEndIconTintList(blackColor)
-        tilSheetConfirmPassword.setEndIconTintList(blackColor)
+        listOf(tilSheetEmail, tilSheetPassword, tilSheetConfirmPassword).forEach {
+            it.defaultHintTextColor = blackColor
+            it.hintTextColor = blackColor
+            it.setBoxStrokeColor(Color.BLACK)
+            it.placeholderTextColor = blackColor
+            it.setStartIconTintList(blackColor) // Make icons black for white background
+            it.setEndIconTintList(blackColor)
+        }
+        listOf(etSheetEmail, etSheetPassword, etSheetConfirmPassword).forEach { it.setTextColor(Color.BLACK) }
 
+        fun setSignupLoading(isLoading: Boolean) {
+            signUpProgressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+            btnGetStarted.visibility = if (isLoading) View.INVISIBLE else View.VISIBLE
+            etSheetEmail.isEnabled = !isLoading
+            etSheetPassword.isEnabled = !isLoading
+            etSheetConfirmPassword.isEnabled = !isLoading
+        }
+
+        // --- CLICK LISTENERS ---
         btnClose.setOnClickListener { bottomSheetDialog.dismiss() }
 
         btnGetStarted.setOnClickListener {
-            tilSheetEmail.error = null; tilSheetPassword.error = null; tilSheetConfirmPassword.error = null
+            tilSheetEmail.error = null
+            tilSheetPassword.error = null
+            tilSheetConfirmPassword.error = null
+
             val email = etSheetEmail.text.toString().trim()
             val password = etSheetPassword.text.toString().trim()
-            val confirmPassword = etSheetConfirmPassword.text.toString().trim()
-            var isValid = true
+            val confirm = etSheetConfirmPassword.text.toString().trim()
 
-            if (email.isEmpty()) { tilSheetEmail.error = "Required"; isValid = false }
-            if (password.length < 8) { tilSheetPassword.error = "Min 8 chars"; isValid = false }
-            if (password != confirmPassword) { tilSheetConfirmPassword.error = "Mismatch"; isValid = false }
+            // Regex: 8+ chars, at least one letter and one number
+            val passRegex = "^(?=.*[A-Za-z])(?=.*\\d).{8,}$".toRegex()
 
-            if (isValid) {
-                btnGetStarted.visibility = View.INVISIBLE
-                signUpProgressBar.visibility = View.VISIBLE
-                etSheetEmail.isEnabled = false
-                etSheetPassword.isEnabled = false
-                etSheetConfirmPassword.isEnabled = false
+            // Top-Down Validation
+            if (email.isEmpty()) {
+                tilSheetEmail.error = "Required"
+                etSheetEmail.requestFocus()
+                return@setOnClickListener
+            }
+            if (!password.matches(passRegex)) {
+                tilSheetPassword.error = "8+ chars with letters & numbers"
+                etSheetPassword.requestFocus()
+                return@setOnClickListener
+            }
+            if (password != confirm) {
+                tilSheetConfirmPassword.error = "Passwords don't match"
+                etSheetConfirmPassword.requestFocus()
+                return@setOnClickListener
+            }
 
-                auth.createUserWithEmailAndPassword(email, password)
-                    .addOnSuccessListener { result ->
-                        val userId = result.user?.uid
-
-                        // --- UPDATED USER MAP WITH isBanned FIELD ---
+            setSignupLoading(true)
+            auth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val userId = auth.currentUser!!.uid
                         val userMap = hashMapOf(
                             "email" to email,
                             "profileCompleted" to false,
                             "role" to "USER",
-                            "isBanned" to false // New default value
+                            "isBanned" to false
                         )
 
-                        if (userId != null) {
-                            db.collection("users").document(userId).set(userMap)
-                                .addOnSuccessListener {
-                                    auth.signOut()
-                                    bottomSheetDialog.dismiss()
-
-                                    Handler(Looper.getMainLooper()).postDelayed({
-                                        showCustomDialog(true, "Account created successfully!") {
-                                            etEmail?.setText(email)
-                                            etPassword?.requestFocus()
-                                        }
-                                    }, 300)
-                                }
-                                .addOnFailureListener { e ->
-                                    signUpProgressBar.visibility = View.GONE
-                                    btnGetStarted.visibility = View.VISIBLE
-                                    etSheetEmail.isEnabled = true
-                                    etSheetPassword.isEnabled = true
-                                    etSheetConfirmPassword.isEnabled = true
-                                    showCustomDialog(false, "DB Error: ${e.message}")
-                                }
+                        db.collection("users").document(userId).set(userMap).addOnCompleteListener { dbTask ->
+                            setSignupLoading(false)
+                            if (dbTask.isSuccessful) {
+                                auth.signOut()
+                                bottomSheetDialog.dismiss()
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    showCustomDialog(true, "Account Created Successfully!") {
+                                        this.etEmail?.setText(email)
+                                        this.etPassword?.requestFocus()
+                                    }
+                                }, 400)
+                            } else {
+                                showCustomDialog(false, "Database Error: ${dbTask.exception?.message}")
+                            }
+                        }
+                    } else {
+                        setSignupLoading(false) // Stop loader immediately
+                        val ex = task.exception
+                        if (ex is com.google.firebase.auth.FirebaseAuthUserCollisionException) {
+                            tilSheetEmail.error = "Email already in use"
+                            etSheetEmail.requestFocus()
+                            shakeView(tilSheetEmail)
+                        } else {
+                            showCustomDialog(false, ex?.message ?: "Signup Failed")
                         }
                     }
-                    .addOnFailureListener { e ->
-                        signUpProgressBar.visibility = View.GONE
-                        btnGetStarted.visibility = View.VISIBLE
-                        etSheetEmail.isEnabled = true
-                        etSheetPassword.isEnabled = true
-                        etSheetConfirmPassword.isEnabled = true
-                        showCustomDialog(false, e.message ?: "Registration Failed")
-                    }
-            }
+                }
         }
         bottomSheetDialog.show()
     }
+    private fun handleFailure(message: String) {
+        progressBar?.visibility = View.GONE
+        btnLogin?.visibility = View.VISIBLE
+        showCustomDialog(false, message)
+    }
+
+    private fun showCustomDialog(isSuccess: Boolean, message: String, action: (() -> Unit)? = null) {
+        runOnUiThread {
+            if (isFinishing || isDestroyed) return@runOnUiThread
+            val dialog = Dialog(this)
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+            dialog.setContentView(R.layout.dialog_custom_message)
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+
+            val tvTitle = dialog.findViewById<TextView>(R.id.tvDialogTitle)
+            val tvMsg = dialog.findViewById<TextView>(R.id.tvDialogMessage)
+            val btnOk = dialog.findViewById<MaterialButton>(R.id.btnDialogOk)
+            val ivIcon = dialog.findViewById<ImageView>(R.id.ivDialogIcon)
+
+            tvMsg.text = message
+            if (isSuccess) {
+                tvTitle.text = "Success!"
+                tvTitle.setTextColor(Color.parseColor("#4CAF50"))
+                ivIcon.setImageResource(R.drawable.ic_success_check)
+                btnOk.setBackgroundColor(Color.parseColor("#4CAF50"))
+            } else {
+                tvTitle.text = "Failed"
+                tvTitle.setTextColor(Color.parseColor("#F44336"))
+                ivIcon.setImageResource(R.drawable.ic_error_x)
+                btnOk.setBackgroundColor(Color.parseColor("#F44336"))
+            }
+
+            btnOk.setOnClickListener {
+                dialog.dismiss()
+                action?.invoke()
+            }
+            dialog.show()
+        }
+    }
 
     private fun shakeView(view: View) {
-        val shake = ObjectAnimator.ofFloat(view, "translationX", 0f, 25f, -25f, 25f, -25f, 15f, -15f, 6f, -6f, 0f)
-        shake.duration = 500
-        shake.start()
+        ObjectAnimator.ofFloat(view, "translationX", 0f, 25f, -25f, 25f, -25f, 15f, -15f, 0f).apply {
+            duration = 500
+            start()
+        }
     }
 
-    private fun navigateToMain() {
-        val intent = Intent(this, HomeActivity1::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
-    }
-
-    private fun navigateToAdmin() {
-        val intent = Intent(this, AdminHomeActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
-    }
-
-    private fun navigateToCompleteProfile() {
-        val intent = Intent(this, CompleteProfileActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
-    }
+    private fun navigateToMain() = startActivity(Intent(this, HomeActivity1::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+    private fun navigateToAdmin() = startActivity(Intent(this, AdminHomeActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+    private fun navigateToCompleteProfile() = startActivity(Intent(this, CompleteProfileActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
 }

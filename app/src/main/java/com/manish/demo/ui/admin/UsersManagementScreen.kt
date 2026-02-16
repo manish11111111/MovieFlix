@@ -79,7 +79,7 @@ fun UsersManagementScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search users...", color = Color.Gray) },
+                placeholder = { Text("By Name,Email or Phone Number", color = Color.Gray) },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.White) },
                 shape = RoundedCornerShape(12.dp),

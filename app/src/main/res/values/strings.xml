@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Demo</string>
     <string name="title_activity_home1">HomeActivity1</string>
+    <string name="forgot_password"><u>Forgot Password?</u></string>
 </resources>

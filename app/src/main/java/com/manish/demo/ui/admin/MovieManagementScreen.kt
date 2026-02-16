@@ -399,7 +399,7 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
     // Filtered list based on search query
     val filteredMovies = movies.filter { movie ->
         val title = movie["title"].toString().lowercase()
-        val genre = movie["genre"].toString().lowercase()
+        val genre = movie["genres"].toString().lowercase()
         val query = searchQuery.lowercase()
         title.contains(query) || genre.contains(query)
     }

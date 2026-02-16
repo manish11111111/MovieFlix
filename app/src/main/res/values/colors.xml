@@ -5,4 +5,5 @@
     <color name="netflix_red">#E50914</color>
     <color name="text_gray">#B3B3B3</color>
     <color name="toast_background">#CC120017</color>
+    <color name="error_red">#FF0000</color>
 </resources>

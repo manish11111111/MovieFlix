@@ -1,249 +1,307 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_splash_modern"
-    android:padding="24dp">
+    android:fitsSystemWindows="true">
 
-    <!-- 1. BRANDING SECTION (Moved Up) -->
+    <!-- Back Button -->
+    <ImageView
+        android:id="@+id/btnBack"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/circle_background"
+        android:backgroundTint="#33FFFFFF"
+        android:padding="10dp"
+        android:src="@drawable/ic_back"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="#FFFFFF" />
+
+    <!-- Logo and Header -->
     <LinearLayout
-        android:id="@+id/brandingContainer"
+        android:id="@+id/headerLogo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:layout_marginTop="20dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:layout_marginBottom="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@id/tvTitle"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
         <ImageView
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:src="@drawable/ic_logo_m"
-            app:tint="#FFFFFF"/>
+            app:tint="#FFFFFF" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="sans-serif-black"
             android:text="MovieFlix"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-black"
-            android:letterSpacing="0.05"
-            android:layout_marginTop="4dp"/>
+            android:textSize="22sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- 2. TITLE SECTION -->
+    <!-- Title - Pushed upward by reducing marginTop from 115dp to 70dp -->
     <TextView
         android:id="@+id/tvTitle"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="70dp"
+        android:layout_marginEnd="24dp"
+        android:fontFamily="sans-serif-black"
         android:text="Complete Your Profile"
+        android:textAlignment="center"
         android:textColor="#FFFFFF"
-        android:textSize="24sp"
+        android:textSize="28sp"
         android:textStyle="bold"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/brandingContainer"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Subtitle -->
     <TextView
-        android:id="@+id/tvSub"
-        android:layout_width="wrap_content"
+        android:id="@+id/tvSubtitle"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="We just need a few details to get started."
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="24dp"
+        android:text="Just a few details to personalize your experience"
+        android:textAlignment="center"
         android:textColor="#B3B3B3"
         android:textSize="14sp"
-        android:layout_marginTop="4dp"
-        app:layout_constraintTop_toBottomOf="@id/tvTitle"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/tvTitle" />
 
-    <!-- 3. PROFILE IMAGE PICKER -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/cvProfileImage"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:layout_marginTop="24dp"
-        app:cardCornerRadius="50dp"
-        app:cardElevation="15dp"
-        app:cardBackgroundColor="#252525"
-        app:layout_constraintTop_toBottomOf="@id/tvSub"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <ImageView
-            android:id="@+id/ivProfile"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:src="@android:drawable/ic_menu_camera"
-            android:scaleType="centerCrop"
-            android:padding="30dp"
-            app:tint="#808080" />
-
-    </androidx.cardview.widget.CardView>
-
-    <TextView
+    <!-- Profile Image Section - Spacing reduced from 24dp to 12dp -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/profileSection"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Tap to upload"
-        android:textColor="#D500F9"
-        android:textSize="12sp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/cvProfileImage"
+        android:layout_marginTop="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/tvSubtitle">
 
-    <!-- 4. FORM FIELDS -->
-    <LinearLayout
-        android:id="@+id/formContainer"
-        android:layout_width="match_parent"
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cvProfileImage"
+            android:layout_width="130dp"
+            android:layout_height="130dp"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="65dp"
+            app:cardElevation="10dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:strokeColor="#D500F9"
+            app:strokeWidth="4dp">
+
+            <ImageView
+                android:id="@+id/ivProfile"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="22dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_profile_placeholder"
+                app:tint="#B3B3B3" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:id="@+id/tvProfileHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:drawableStart="@drawable/ic_camera"
+            android:drawablePadding="4dp"
+            android:drawableTint="#B3B3B3"
+            android:fontFamily="sans-serif-medium"
+            android:text="Tap to upload profile photo"
+            android:textColor="#B3B3B3"
+            android:textSize="12sp"
+            android:textStyle="italic"
+            app:layout_constraintEnd_toEndOf="@id/cvProfileImage"
+            app:layout_constraintStart_toStartOf="@id/cvProfileImage"
+            app:layout_constraintTop_toBottomOf="@id/cvProfileImage" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cvCameraIcon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            app:cardBackgroundColor="#D500F9"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="12dp"
+            app:layout_constraintBottom_toBottomOf="@id/cvProfileImage"
+            app:layout_constraintEnd_toEndOf="@id/cvProfileImage"
+            app:layout_constraintHorizontal_bias="0.95"
+            app:layout_constraintStart_toStartOf="@id/cvProfileImage"
+            app:layout_constraintTop_toTopOf="@id/cvProfileImage"
+            app:layout_constraintVertical_bias="0.95"
+            app:strokeColor="#FFFFFF"
+            app:strokeWidth="3dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_camera"
+                app:tint="#FFFFFF" />
+        </com.google.android.material.card.MaterialCardView>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Form Section - Spacing reduced from 24dp to 12dp -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/formCard"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="24dp"
-        app:layout_constraintTop_toBottomOf="@id/cvProfileImage">
-
-        <!-- FULL NAME -->
-        <!-- Removed manual padding to fix overlap -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilFullName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Full Name"
-
-            app:startIconDrawable="@android:drawable/ic_menu_my_calendar"
-            app:startIconTint="#D500F9"
-
-            app:boxBackgroundColor="#15FFFFFF"
-            app:boxCornerRadiusTopStart="24dp"
-            app:boxCornerRadiusTopEnd="24dp"
-            app:boxCornerRadiusBottomStart="24dp"
-            app:boxCornerRadiusBottomEnd="24dp"
-            app:boxStrokeWidth="0dp"
-
-            android:textColorHint="#99FFFFFF"
-            app:hintTextColor="#D500F9"
-            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etFullName"
-                android:layout_marginTop="16dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPersonName"
-                android:textColor="#FFFFFF"
-                android:background="@null"
-                android:maxLines="1"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- PHONE NUMBER -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilPhone"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Phone Number"
-
-            app:startIconDrawable="@android:drawable/ic_menu_call"
-            app:startIconTint="#D500F9"
-
-            app:boxBackgroundColor="#15FFFFFF"
-            app:boxCornerRadiusTopStart="24dp"
-            app:boxCornerRadiusTopEnd="24dp"
-            app:boxCornerRadiusBottomStart="24dp"
-            app:boxCornerRadiusBottomEnd="24dp"
-            app:boxStrokeWidth="0dp"
-
-            android:textColorHint="#99FFFFFF"
-            app:hintTextColor="#D500F9"
-            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etPhone"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="phone"
-                android:maxLength="15"
-                android:textColor="#FFFFFF"
-                android:background="@null"
-                android:maxLines="1"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- DATE OF BIRTH -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilDob"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Date of Birth"
-
-            app:startIconDrawable="@android:drawable/ic_menu_day"
-            app:startIconTint="#D500F9"
-
-            app:endIconMode="custom"
-            app:endIconDrawable="@android:drawable/ic_menu_my_calendar"
-            app:endIconTint="#D500F9"
-
-            app:boxBackgroundColor="#15FFFFFF"
-            app:boxCornerRadiusTopStart="24dp"
-            app:boxCornerRadiusTopEnd="24dp"
-            app:boxCornerRadiusBottomStart="24dp"
-            app:boxCornerRadiusBottomEnd="24dp"
-            app:boxStrokeWidth="0dp"
-
-            android:textColorHint="#99FFFFFF"
-            app:hintTextColor="#D500F9"
-            style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etDob"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:focusable="false"
-                android:clickable="true"
-                android:inputType="none"
-                android:textColor="#FFFFFF"
-                android:background="@null"
-                android:maxLines="1"/>
-        </com.google.android.material.textfield.TextInputLayout>
-
-    </LinearLayout>
-
-    <!-- 5. SAVE BUTTON WITH LOADER -->
-    <FrameLayout
-        android:id="@+id/btnContainer"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginTop="24dp"
-        app:layout_constraintTop_toBottomOf="@id/formContainer"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="24dp"
+        app:cardBackgroundColor="#FFFFFF"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/profileSection">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSaveProfile"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="Save Profile"
-            android:visibility="visible"
-            style="@style/Widget.Material3.Button"
-            android:backgroundTint="#D500F9"
-            android:textColor="#FFFFFF"
-            app:cornerRadius="28dp"/>
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
 
-        <ProgressBar
-            android:id="@+id/profileProgressBar"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_gravity="center"
-            android:visibility="gone"
-            android:indeterminate="true"
-            android:indeterminateTint="#FFFFFF"/>
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilFullName"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Full Name"
+                android:textColorHint="#000000"
+                app:boxBackgroundColor="#F5F5F5"
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
+                app:boxStrokeColor="#D500F9"
+                app:boxStrokeErrorColor="@color/error_red"
+                app:errorIconTint="@color/error_red"
+                app:errorTextColor="@color/error_red"
+                app:hintTextColor="#000000"
+                app:startIconDrawable="@drawable/ic_person"
+                app:startIconTint="#D500F9">
 
-    </FrameLayout>
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etFullName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#000000" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilPhone"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Phone Number"
+                android:textColorHint="#000000"
+                app:boxBackgroundColor="#F5F5F5"
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
+                app:boxStrokeColor="#D500F9"
+                app:boxStrokeErrorColor="@color/error_red"
+                app:errorIconTint="@color/error_red"
+                app:errorTextColor="@color/error_red"
+                app:hintTextColor="#000000"
+                app:startIconDrawable="@drawable/ic_phone"
+                app:startIconTint="#D500F9">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etPhone"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="phone"
+                    android:maxLength="10"
+                    android:textColor="#000000" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilDob"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="Date of Birth"
+                android:textColorHint="#000000"
+                app:boxBackgroundColor="#F5F5F5"
+                app:boxCornerRadiusBottomEnd="16dp"
+                app:boxCornerRadiusBottomStart="16dp"
+                app:boxCornerRadiusTopEnd="16dp"
+                app:boxCornerRadiusTopStart="16dp"
+                app:boxStrokeColor="#D500F9"
+                app:boxStrokeErrorColor="@color/error_red"
+                app:endIconDrawable="@drawable/ic_chevron_down"
+                app:endIconMode="custom"
+                app:endIconTint="#D500F9"
+                app:errorIconTint="@color/error_red"
+                app:errorTextColor="@color/error_red"
+                app:hintTextColor="#000000"
+                app:startIconDrawable="@drawable/ic_calendar"
+                app:startIconTint="#D500F9">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etDob"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="false"
+                    android:textColor="#000000" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSaveProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="60dp"
+                    android:background="@drawable/btn_vibrant_gradient"
+                    android:text="COMPLETE PROFILE"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="@null"
+                    app:cornerRadius="30dp"
+                    app:icon="@drawable/ic_check"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp" />
+
+                <ProgressBar
+                    android:id="@+id/profileProgressBar"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="#D500F9"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

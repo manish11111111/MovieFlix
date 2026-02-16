@@ -1,85 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    package="com.manish.demo">
 
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+
+    <!-- 1. PERMISSIONS -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <!-- 2. HARDWARE FEATURES (Tells Android the app can use the camera) -->
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" /><!-- Permission for Android 12 and below -->
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" /> <!-- Permission for Android 13+ (Tiramisu) -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
-    <!-- For Android 13+ -->
-
-    <!-- For camera on Android 13+ -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 3. QUERIES (Mandatory for Android 11+ to recognize Camera apps) -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
 
     <application
-        android:usesCleartextTraffic="true"
         android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
         android:theme="@style/Theme.Demo"
-        tools:targetApi="31">
-        
-        <!-- User Dashboard -->
-        <activity
-            android:name=".HomeActivity1"
-            android:exported="false"
-            android:label="@string/title_activity_home1"
-            android:theme="@style/Theme.Demo" />
-            
-        <!-- Admin Dashboard -->
-        <activity
-            android:name=".AdminHomeActivity"
-            android:exported="false"
-            android:label="Admin Dashboard"
-            android:theme="@style/Theme.Demo" />
+        android:usesCleartextTraffic="true">
 
-        <activity
-            android:name=".HomeActivity"
-            android:exported="false" />
-        <activity
-            android:name=".CompleteProfileActivity"
-            android:exported="false" />
+        <!-- FileProvider for Camera sharing -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.manish.demo.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Launcher Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Our New Admin Activity -->
+
+        <!-- Profile Completion - adjustNothing stops keyboard from shifting layout -->
         <activity
-            android:name=".ui.admin.AdminActivity"
+            android:name=".CompleteProfileActivity"
             android:exported="false"
-            android:screenOrientation="fullSensor"
-            android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Demo"> <!-- Use your app's theme here -->
-        </activity>
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".HomeActivity1"
+            android:exported="false" />
+
+        <activity
+            android:name=".AdminHomeActivity"
+            android:exported="false" />
 
         <activity
             android:name=".LoginActivity"
             android:exported="false" />
-        <activity
-            android:name=".GetStartedActivity"
+        <activity android:name=".GetStartedActivity"
             android:exported="false" />
-            
-        <!-- Temp Admin Activity (Deprecated) -->
 
     </application>
-
 </manifest>

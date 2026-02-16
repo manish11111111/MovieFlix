@@ -125,6 +125,43 @@ class HomeActivity1 : ComponentActivity() {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Log.e("HomeActivity1", "Uncaught exception in thread: ${thread.name}", throwable)
         }
+
+        // CALL setContent ONLY ONCE HERE
+        setContent {
+            DemoTheme {
+                UserApp(
+                    userName = userName,
+                    userEmail = userEmail,
+                    userPhone = userPhone,
+                    userDob = userDob,
+                    userImageBitmap = userImageBitmap,
+                    passwordLastUpdated = passwordLastUpdated,
+                    isRefreshing = isRefreshing,
+                    showSuccessToast = showSuccessToast,
+                    isUploadingImage = isUploadingImage,
+                    moviesList = moviesList,
+                    isLoadingMovies = isLoadingMovies,
+                    featuredMovie = featuredMovie,
+                    onRefresh = {
+                        if (!isUploadingImage) {
+                            isRefreshing = true
+                            fetchUserData()
+                            fetchMovies()
+                        }
+                    },
+                    onHideSuccessToast = {
+                        showSuccessToast = false
+                    },
+                    onImageSelected = { sourceType ->
+                        handleImageSourceSelection(sourceType)
+                    },
+                    onMovieClicked = { movie ->
+                        Log.d("HomeActivity1", "Movie clicked: ${movie.title}")
+                    }
+                )
+            }
+        }
+
         listenForBanStatus()
         listenForAccountChanges()
         fetchUserData()
@@ -215,16 +252,13 @@ class HomeActivity1 : ComponentActivity() {
                         }
                     }
                     isRefreshing = false
-                    updateUI()
                 }
                 .addOnFailureListener { exception ->
                     Log.e("HomeActivity1", "Error fetching user data", exception)
                     isRefreshing = false
-                    updateUI()
                 }
         } else {
             isRefreshing = false
-            updateUI()
         }
     }
 
@@ -309,48 +343,6 @@ class HomeActivity1 : ComponentActivity() {
             builder.show()
         }
     }
-    private fun updateUI() {
-        try {
-            setContent {
-                DemoTheme {
-                    UserApp(
-                        userName = userName,
-                        userEmail = userEmail,
-                        userPhone = userPhone,
-                        userDob = userDob,
-                        userImageBitmap = userImageBitmap,
-                        passwordLastUpdated = passwordLastUpdated,
-                        isRefreshing = isRefreshing,
-                        showSuccessToast = showSuccessToast,
-                        isUploadingImage = isUploadingImage,
-                        moviesList = moviesList,
-                        isLoadingMovies = isLoadingMovies,
-                        featuredMovie = featuredMovie,
-                        onRefresh = {
-                            if (!isUploadingImage) {
-                                isRefreshing = true
-                                fetchUserData()
-                                fetchMovies()
-                            }
-                        },
-                        onHideSuccessToast = {
-                            showSuccessToast = false
-                        },
-                        onImageSelected = { sourceType ->
-                            // Fix: Call the correct function
-                            handleImageSourceSelection(sourceType)
-                        },
-                        onMovieClicked = { movie ->
-                            // Handle movie click
-                            Log.d("HomeActivity1", "Movie clicked: ${movie.title}")
-                        }
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("HomeActivity1", "Error in setContent", e)
-        }
-    }
 
     private fun handleImageSourceSelection(sourceType: String) {
         Log.d("HomeActivity1", "handleImageSourceSelection called with: $sourceType")
@@ -407,7 +399,6 @@ class HomeActivity1 : ComponentActivity() {
 
     private fun handleImageSelection(imageUri: Uri, sourceType: String) {
         isUploadingImage = true
-        updateUI()
 
         try {
             Log.d("HomeActivity1", "handleImageSelection called with URI: $imageUri")
@@ -422,18 +413,15 @@ class HomeActivity1 : ComponentActivity() {
             } else {
                 Log.e("HomeActivity1", "Bitmap is null after decoding")
                 isUploadingImage = false
-                updateUI()
             }
         } catch (e: Exception) {
             Log.e("HomeActivity1", "Error processing image", e)
             isUploadingImage = false
-            updateUI()
         }
     }
 
     private fun handleCameraImage(bitmap: Bitmap) {
         isUploadingImage = true
-        updateUI()
 
         try {
             Log.d("HomeActivity1", "Camera image captured, size: ${bitmap.width}x${bitmap.height}")
@@ -442,7 +430,6 @@ class HomeActivity1 : ComponentActivity() {
         } catch (e: Exception) {
             Log.e("HomeActivity1", "Error processing camera image", e)
             isUploadingImage = false
-            updateUI()
         }
     }
 
@@ -467,11 +454,9 @@ class HomeActivity1 : ComponentActivity() {
                 .addOnFailureListener { e ->
                     Log.e("HomeActivity1", "Error updating profile image", e)
                     isUploadingImage = false
-                    updateUI()
                 }
         } else {
             isUploadingImage = false
-            updateUI()
         }
     }
 

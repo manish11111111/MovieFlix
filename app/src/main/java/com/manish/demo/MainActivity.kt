@@ -20,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
+import com.google.firebase.firestore.DocumentSnapshot
 
 class MainActivity : AppCompatActivity() {
 
@@ -47,20 +48,6 @@ class MainActivity : AppCompatActivity() {
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
-        }
-        fun listenForBanStatus() {
-            val user = FirebaseAuth.getInstance().currentUser
-            if (user != null) {
-                FirebaseFirestore.getInstance().collection("users").document(user.uid)
-                    .addSnapshotListener { snapshot, error ->
-                        if (snapshot != null && snapshot.exists()) {
-                            val isBanned = snapshot.getBoolean("isBanned") ?: false
-                            if (isBanned) {
-                                showBanDialogAndLogout()
-                            }
-                        }
-                    }
-            }
         }
 
         // 1. Initialize Views
@@ -155,43 +142,60 @@ class MainActivity : AppCompatActivity() {
             if (currentUser == null) {
                 navigateTo(LoginActivity::class.java)
             } else {
-                // Force a server read to check for the ban
+                // Try server first, but fall back to cache if server fails
                 db.collection("users").document(currentUser.uid).get(Source.SERVER)
                     .addOnSuccessListener { document ->
-                        if (document != null && document.exists()) {
-
-                            // --- BAN CHECK ---
-                            val isBanned = document.getBoolean("isBanned") ?: false
-                            if (isBanned) {
-                                auth.signOut()
-                                Toast.makeText(this, "Account Banned: Access Revoked.", Toast.LENGTH_LONG).show()
-                                navigateTo(LoginActivity::class.java)
-                                return@addOnSuccessListener
-                            }
-
-                            val profileCompleted = document.getBoolean("profileCompleted") ?: false
-                            val role = document.getString("role") ?: "USER"
-
-                            if (profileCompleted) {
-                                if (role.equals("admin", ignoreCase = true)) {
-                                    navigateTo(AdminHomeActivity::class.java)
-                                } else {
-                                    navigateTo(HomeActivity1::class.java)
-                                }
-                            } else {
-                                navigateTo(CompleteProfileActivity::class.java)
-                            }
-                        } else {
-                            navigateTo(CompleteProfileActivity::class.java)
-                        }
+                        handleUserDocument(document)
                     }
-                    .addOnFailureListener {
-                        Toast.makeText(this, "Connection Error.", Toast.LENGTH_SHORT).show()
-                        navigateTo(LoginActivity::class.java)
+                    .addOnFailureListener { serverError ->
+                        // If server fails (no internet), try cache
+                        db.collection("users").document(currentUser.uid).get(Source.CACHE)
+                            .addOnSuccessListener { cachedDoc ->
+                                if (cachedDoc.exists()) {
+                                    Toast.makeText(this, "Using offline mode. Some features may be limited.", Toast.LENGTH_LONG).show()
+                                    handleUserDocument(cachedDoc)
+                                } else {
+                                    // No cached data either
+                                    Toast.makeText(this, "Please check your internet connection.", Toast.LENGTH_LONG).show()
+                                    navigateTo(LoginActivity::class.java)
+                                }
+                            }
+                            .addOnFailureListener { cacheError ->
+                                Toast.makeText(this, "Connection Error. Please check your internet.", Toast.LENGTH_SHORT).show()
+                                navigateTo(LoginActivity::class.java)
+                            }
                     }
             }
         }
     }
+
+    private fun handleUserDocument(document: DocumentSnapshot) {
+        if (document != null && document.exists()) {
+            // --- BAN CHECK ---
+            val isBanned = document.getBoolean("isBanned") ?: false
+            if (isBanned) {
+                auth.signOut()
+                showBanDialogAndLogout()
+                return
+            }
+
+            val profileCompleted = document.getBoolean("profileCompleted") ?: false
+            val role = document.getString("role") ?: "USER"
+
+            if (profileCompleted) {
+                if (role.equals("admin", ignoreCase = true)) {
+                    navigateTo(AdminHomeActivity::class.java)
+                } else {
+                    navigateTo(HomeActivity1::class.java)
+                }
+            } else {
+                navigateTo(CompleteProfileActivity::class.java)
+            }
+        } else {
+            navigateTo(CompleteProfileActivity::class.java)
+        }
+    }
+
     private fun showBanDialogAndLogout() {
         // Show a native Alert Dialog
         if (!isFinishing) {
@@ -210,6 +214,7 @@ class MainActivity : AppCompatActivity() {
             builder.show()
         }
     }
+
     private fun <T> navigateTo(activityClass: Class<T>) {
         val intent = Intent(this, activityClass)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
