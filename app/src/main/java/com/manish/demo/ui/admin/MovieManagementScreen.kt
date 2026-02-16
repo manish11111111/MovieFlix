@@ -396,7 +396,6 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var movieToDelete by remember { mutableStateOf<Map<String, Any>?>(null) }
 
-    // Filtered list based on search query
     val filteredMovies = movies.filter { movie ->
         val title = movie["title"].toString().lowercase()
         val genre = movie["genres"].toString().lowercase()
@@ -404,31 +403,15 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
         title.contains(query) || genre.contains(query)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent)
-    ) {
-        // --- TRANSPARENT SEARCH FIELD ---
+    Column(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
+        // --- SEARCH BAR (Keep your existing code here) ---
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             shape = RoundedCornerShape(12.dp),
-            tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
             color = Color.White.copy(alpha = 0.08f)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = Color(0xFF2ECC71),
-                    modifier = Modifier.size(20.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
+                Icon(Icons.Default.Search, null, tint = Color(0xFF2ECC71), modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 BasicTextField(
                     value = searchQuery,
@@ -436,129 +419,54 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
                     textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
                     modifier = Modifier.weight(1f),
                     cursorBrush = SolidColor(Color(0xFF2ECC71)),
-                    decorationBox = { innerTextField ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (searchQuery.isEmpty()) {
-                                Text(
-                                    "Search by title or genre...",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 16.sp
-                                )
-                            }
-                            innerTextField()
+                    decorationBox = { inner ->
+                        Box(modifier = Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.CenterStart) {
+                            if (searchQuery.isEmpty()) Text("Search...", color = Color.White.copy(0.5f))
+                            inner()
                         }
                     }
                 )
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(
-                        onClick = { searchQuery = "" }
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
         // --- MOVIE LIST ---
-        if (filteredMovies.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 80.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Movie,
-                        contentDescription = null,
-                        tint = Color(0xFF2ECC71).copy(alpha = 0.5f),
-                        modifier = Modifier.size(80.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "No movies found",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        if (searchQuery.isNotEmpty()) "Try a different search term" else "Add some movies to get started",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 14.sp
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(16.dp)
-            ) {
-                items(
-                    items = filteredMovies,
-                    key = { it["docId"].toString() }
-                ) { movie ->
-                    TransparentMovieCard(
-                        movie = movie,
-                        onDeleteClick = {
-                            movieToDelete = movie
-                            showDeleteDialog = true
-                        }
-                    )
-                }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(16.dp)) {
+            items(items = filteredMovies, key = { it["docId"].toString() }) { movie ->
+                TransparentMovieCard(
+                    movie = movie,
+                    onDeleteClick = {
+                        movieToDelete = movie
+                        showDeleteDialog = true
+                    }
+                )
             }
         }
     }
 
-    // --- TRANSPARENT DELETE CONFIRMATION DIALOG ---
+    // --- UPDATED DELETE DIALOG ---
     if (showDeleteDialog && movieToDelete != null) {
         AlertDialog(
-            onDismissRequest = {
-                showDeleteDialog = false
-                movieToDelete = null
-            },
-            title = {
-                Text(text = "Delete Movie", fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Text(text = "Are you sure you want to delete \"${movieToDelete!!["title"]}\"? This cannot be undone.")
-            },
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Movie", color = Color.White) },
+            text = { Text("Are you sure you want to delete \"${movieToDelete!!["title"]}\"?", color = Color.White.copy(0.7f)) },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteMovie(movieToDelete!!["docId"].toString())
+                        val docId = movieToDelete!!["docId"].toString()
+                        val title = movieToDelete!!["title"].toString() // Get title for log
+
+                        // Pass both ID and Title to match your new ViewModel signature
+                        viewModel.deleteMovie(docId, title)
+
                         showDeleteDialog = false
                         movieToDelete = null
                     }
-                ) {
-                    Text("Delete", color = Color.Red)
-                }
+                ) { Text("Delete", color = Color.Red) }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        movieToDelete = null
-                    }
-                ) {
-                    Text("Cancel", color = Color.Gray)
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel", color = Color.Gray) }
             },
-            containerColor = Color(0xFF1A1C1E), // Dark background to match your app
-            titleContentColor = Color.White,
-            textContentColor = Color.White.copy(alpha = 0.8f)
+            containerColor = Color(0xFF1A1C1E)
         )
     }
 }

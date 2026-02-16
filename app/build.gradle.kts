@@ -119,7 +119,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.0")
-
+    implementation("com.google.firebase:firebase-messaging-ktx:23.4.0")
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
@@ -129,7 +129,7 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.7.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-
+    implementation("com.google.firebase:firebase-messaging-ktx")
     // Material Components (for non-Compose UI if needed)
     implementation("com.google.android.material:material:1.12.0")
 

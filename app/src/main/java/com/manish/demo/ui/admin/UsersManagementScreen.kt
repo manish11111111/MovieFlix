@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.google.firebase.auth.FirebaseAuth
 import com.manish.demo.viewmodel.AdminViewModel
 
@@ -46,12 +45,14 @@ fun UsersManagementScreen(
     var searchQuery by remember { mutableStateOf("") }
     var enlargedImage by remember { mutableStateOf<ImageBitmap?>(null) }
 
-    // --- NEW STATES FOR LOADER AND TOAST ---
     var isActionLoading by remember { mutableStateOf(false) }
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
 
-    val currentAdminUid = remember { FirebaseAuth.getInstance().currentUser?.uid }
+    var userForAdminAction by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var userForBanAction by remember { mutableStateOf<Map<String, Any>?>(null) }
+
+    val currentAdminUid = remember { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid }
 
     LaunchedEffect(Unit) { viewModel.fetchUsers() }
 
@@ -67,29 +68,20 @@ fun UsersManagementScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // --- 1. THE TOAST COMPONENT ---
-        CustomToastCompose(
-            message = toastMessage,
-            showToast = showToast,
-            onDismiss = { showToast = false }
-        )
+        CustomToastCompose(message = toastMessage, showToast = showToast, onDismiss = { showToast = false })
 
         Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
-            // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("By Name,Email or Phone Number", color = Color.Gray) },
+                placeholder = { Text("By Name, Email or Phone Number", color = Color.Gray) },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.White) },
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedContainerColor = Color.White.copy(alpha = 0.05f),
-                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                    focusedBorderColor = Color(0xFF2ECC71),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                    focusedContainerColor = Color.White.copy(alpha = 0.05f), unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    focusedBorderColor = Color(0xFF2ECC71), unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
                 ),
                 singleLine = true
             )
@@ -101,57 +93,71 @@ fun UsersManagementScreen(
                     CircularProgressIndicator(color = Color(0xFF2ECC71))
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
-                ) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
                     items(items = filteredUsers, key = { it["uid"].toString() }) { user ->
                         UserManagementCard(
                             user = user,
                             onPhotoClick = { enlargedImage = it },
-                            onToggleAdmin = {
-                                isActionLoading = true // START LOADER
-                                viewModel.toggleAdminStatus(
-                                    user["uid"].toString(),
-                                    user["role"]?.toString().equals("admin", true)
-                                ) { message ->
-                                    // CALLBACK
-                                    toastMessage = message
-                                    showToast = true
-                                    isActionLoading = false // STOP LOADER
-                                }
-                            },
-                            onToggleBan = {
-                                isActionLoading = true // START LOADER
-                                viewModel.toggleBanStatus(
-                                    user["uid"].toString(),
-                                    user["isBanned"] as? Boolean ?: false
-                                ) { message ->
-                                    // CALLBACK
-                                    toastMessage = message
-                                    showToast = true
-                                    isActionLoading = false // STOP LOADER
-                                }
-                            }
+                            onRequestAdminToggle = { userForAdminAction = user },
+                            onRequestBanToggle = { userForBanAction = user }
                         )
                     }
                 }
             }
         }
 
-        // --- 2. FULL SCREEN LOADER OVERLAY ---
-        AnimatedVisibility(
-            visible = isActionLoading,
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .zIndex(5f),
-                contentAlignment = Alignment.Center
-            ) {
+        // --- UPDATED ROLE ALERT ---
+        userForAdminAction?.let { user ->
+            AlertDialog(
+                onDismissRequest = { userForAdminAction = null },
+                containerColor = Color(0xFF1E1E1E),
+                title = { Text("Promote User", color = Color.White) },
+                text = { Text("Make ${user["fullName"]} an Admin?", color = Color.LightGray) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val uid = user["uid"].toString()
+                        val name = user["fullName"].toString() // GET NAME FOR LOG
+                        userForAdminAction = null
+                        isActionLoading = true
+                        viewModel.toggleAdminStatus(uid, name, false) { msg ->
+                            toastMessage = msg
+                            showToast = true
+                            isActionLoading = false
+                        }
+                    }) { Text("Promote", color = Color(0xFF2ECC71), fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = { TextButton(onClick = { userForAdminAction = null }) { Text("Cancel", color = Color.White) } }
+            )
+        }
+
+        // --- UPDATED BAN ALERT ---
+        userForBanAction?.let { user ->
+            val isBanned = user["isBanned"] as? Boolean ?: false
+            AlertDialog(
+                onDismissRequest = { userForBanAction = null },
+                containerColor = Color(0xFF1E1E1E),
+                title = { Text(if (isBanned) "Unban User" else "Ban User", color = Color.White) },
+                text = { Text("Confirm action for ${user["fullName"]}?", color = Color.LightGray) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val uid = user["uid"].toString()
+                        val name = user["fullName"].toString() // GET NAME FOR LOG
+                        userForBanAction = null
+                        isActionLoading = true
+                        viewModel.toggleBanStatus(uid, name, isBanned) { msg ->
+                            toastMessage = msg
+                            showToast = true
+                            isActionLoading = false
+                        }
+                    }) { Text("Confirm", color = if (isBanned) Color.Green else Color.Red, fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = { TextButton(onClick = { userForBanAction = null }) { Text("Cancel", color = Color.White) } }
+            )
+        }
+
+        // Loader Overlay
+        androidx.compose.animation.AnimatedVisibility(visible = isActionLoading, enter = fadeIn(), exit = fadeOut()) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).zIndex(10f), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Color(0xFF2ECC71))
                     Spacer(Modifier.height(12.dp))
@@ -160,19 +166,11 @@ fun UsersManagementScreen(
             }
         }
 
-        // --- ENLARGED PHOTO DIALOG ---
+        // Enlarged Image Dialog
         enlargedImage?.let { bitmap ->
             Dialog(onDismissRequest = { enlargedImage = null }) {
-                Box(
-                    modifier = Modifier.fillMaxSize().clickable { enlargedImage = null },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        bitmap = bitmap,
-                        contentDescription = null,
-                        modifier = Modifier.size(300.dp).clip(CircleShape).border(3.dp, Color(0xFF2ECC71), CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
+                Box(modifier = Modifier.fillMaxSize().clickable { enlargedImage = null }, contentAlignment = Alignment.Center) {
+                    Image(bitmap = bitmap, contentDescription = null, modifier = Modifier.size(300.dp).clip(CircleShape).border(3.dp, Color(0xFF2ECC71), CircleShape), contentScale = ContentScale.Crop)
                 }
             }
         }
@@ -183,8 +181,8 @@ fun UsersManagementScreen(
 fun UserManagementCard(
     user: Map<String, Any>,
     onPhotoClick: (ImageBitmap) -> Unit,
-    onToggleAdmin: () -> Unit,
-    onToggleBan: () -> Unit
+    onRequestAdminToggle: () -> Unit,
+    onRequestBanToggle: () -> Unit
 ) {
     val name = user["fullName"]?.toString() ?: "No Name"
     val email = user["email"]?.toString() ?: "No Email"
@@ -197,7 +195,6 @@ fun UserManagementCard(
 
     var showMenu by remember { mutableStateOf(false) }
 
-    // Decode Base64 image
     val decodedBitmap = remember(photoBase64) {
         if (photoBase64.isNotEmpty()) {
             try {
@@ -216,7 +213,6 @@ fun UserManagementCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // ---------- Top section: Name, Email, Dropdown ----------
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // User photo
                 Box(modifier = Modifier.size(56.dp).clickable { decodedBitmap?.let { onPhotoClick(it) } }) {
@@ -224,10 +220,7 @@ fun UserManagementCard(
                         Image(
                             bitmap = decodedBitmap,
                             contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .border(1.dp, Color(0xFF2ECC71), CircleShape),
+                            modifier = Modifier.fillMaxSize().clip(CircleShape).border(1.dp, Color(0xFF2ECC71), CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
@@ -246,56 +239,51 @@ fun UserManagementCard(
                     Text(email, color = Color.LightGray, fontSize = 12.sp, maxLines = 1)
                 }
 
-                // Dropdown menu
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, null, tint = Color.White)
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(Color(0xFF1E1E1E))
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = if (isAdmin) "Demote to User" else "Make Admin",
-                                    color = if (isAdmin) Color.White else Color(0xFF2196F3)
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.AdminPanelSettings,
-                                    contentDescription = null,
-                                    tint = if (isAdmin) Color.Gray else Color(0xFF2196F3)
-                                )
-                            },
-                            enabled = !isAdmin,
-                            onClick = {
-                                onToggleAdmin()
-                                showMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (isBanned) "Unban User" else "Ban User",
-                                    color = if (isBanned) Color.Green else Color.Red
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Block,
-                                    contentDescription = null,
-                                    tint = if (isBanned) Color.Green else Color.Red
-                                )
-                            },
-                            enabled = !isAdmin,
-                            onClick = {
-                                onToggleBan()
-                                showMenu = false
-                            }
-                        )
+                // --- Restricted Menu Logic ---
+                // 1. Only show Menu if user is NOT an admin
+                if (!isAdmin) {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, null, tint = Color.White)
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(Color(0xFF1E1E1E))
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Make Admin",
+                                        color = if (isBanned) Color.Gray else Color(0xFF2196F3)
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.AdminPanelSettings, null, tint = if (isBanned) Color.Gray else Color(0xFF2196F3))
+                                },
+                                // 2. Disable promotion if already banned
+                                enabled = !isBanned,
+                                onClick = {
+                                    showMenu = false
+                                    onRequestAdminToggle()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (isBanned) "Unban User" else "Ban User",
+                                        color = if (isBanned) Color.Green else Color.Red
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Block, null, tint = if (isBanned) Color.Green else Color.Red)
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onRequestBanToggle()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -303,88 +291,35 @@ fun UserManagementCard(
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
-            // ---------- Bottom section ----------
-            // First row: Phone & DOB
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 InfoBlock("PHONE", phone, Icons.Default.Phone)
                 InfoBlock("DOB", dob, Icons.Default.Cake)
             }
 
-            HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.1f))
 
-            // Second row: Role + Status
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top  // Align to top
-            ) {
-                // Role section
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(
-                        "ROLE",
-                        color = Color.Gray,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    // Role content with fixed height to match status chip
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 4.dp)
-                            .height(24.dp)  // Fixed height to match status chip
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxHeight()
-                        ) {
-                            Icon(
-                                if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person,
-                                contentDescription = null,
-                                tint = if (isAdmin) Color.Green else Color.LightGray,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                role.uppercase(),
-                                color = if (isAdmin) Color.White else Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                    Text("ROLE", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(24.dp)) {
+                        Icon(if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person, null, tint = if (isAdmin) Color.Green else Color.LightGray, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(role.uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 }
 
-                // Status section
-                Column(
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Text(
-                        "STATUS",
-                        color = Color.Gray,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("STATUS", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    StatusChip(
+                        text = if (isBanned) "BANNED" else "ACTIVE",
+                        color = if (isBanned) Color.Red else Color(0xFF2ECC71),
+                        modifier = Modifier.height(24.dp)
                     )
-                    // Status badge with same height
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 4.dp)
-                            .height(24.dp)  // Same fixed height
-                    ) {
-                        StatusChip(
-                            text = if (isBanned) "BANNED" else "ACTIVE",
-                            color = if (isBanned) Color.Red else Color(0xFF2ECC71),
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
                 }
             }
         }
     }
 }
-
 
 @Composable
 fun InfoBlock(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
@@ -398,14 +333,20 @@ fun InfoBlock(label: String, value: String, icon: androidx.compose.ui.graphics.v
     }
 }
 
-
 @Composable
-fun StatusChip(text: String, color: Color,modifier: Modifier = Modifier) {
+fun StatusChip(text: String, color: Color, modifier: Modifier = Modifier) {
     Surface(
         color = color.copy(alpha = 0.15f),
         shape = RoundedCornerShape(4.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
+        border = BorderStroke(1.dp, color.copy(alpha = 0.4f)),
+        modifier = modifier
     ) {
-        Text(text, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+        Text(
+            text,
+            color = color,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }

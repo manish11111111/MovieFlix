@@ -273,8 +273,8 @@ class CompleteProfileActivity : AppCompatActivity() {
 
     private fun saveToFirestore(name: String, phone: String, dob: String, img: String) {
         val uid = auth.currentUser?.uid ?: return
-        val currentEmail = auth.currentUser?.email ?: ""  //
-        // Explicitly setting role to USER
+        val currentEmail = auth.currentUser?.email ?: ""
+
         val userData = hashMapOf(
             "fullName" to name,
             "email" to currentEmail,
@@ -288,6 +288,21 @@ class CompleteProfileActivity : AppCompatActivity() {
 
         db.collection("users").document(uid).set(userData, SetOptions.merge())
             .addOnSuccessListener {
+
+                // --- 1. UPDATE DASHBOARD STATS (Total Users +1) ---
+                // Using your specific document ID: YblkiRVdxGQqVza8K85i
+                val statsRef = db.collection("Dashboard_stats").document("YbIkiRVdxGQqvza8K85i")
+                statsRef.update("totalUsers", FieldValue.increment(1))
+
+                // --- 2. LOG ACTIVITY FOR DASHBOARD ---
+                val activityLog = hashMapOf(
+                    "title" to "New Profile Completed: $name",
+                    "type" to "role", // This shows the person icon on your dashboard
+                    "timestamp" to com.google.firebase.Timestamp.now()
+                )
+                db.collection("activities").add(activityLog)
+
+                // --- ORIGINAL UI LOGIC ---
                 showCustomToast("Profile Saved Successfully!")
                 handler.postDelayed({
                     val intent = Intent(this, HomeActivity1::class.java)
