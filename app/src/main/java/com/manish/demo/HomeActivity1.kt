@@ -132,6 +132,10 @@ class HomeActivity1 : ComponentActivity() {
     private var showSuccessToast by mutableStateOf(false)
     private var isUploadingImage by mutableStateOf(false)
 
+    // ✅ Subscription and first-time launch state
+    private var hasActiveSubscription by mutableStateOf(false)
+    private var isFirstTimeLaunch by mutableStateOf(true)
+
     // Movie state variables
     private var moviesList by mutableStateOf<List<Movie>>(emptyList())
     private var isLoadingMovies by mutableStateOf(false)
@@ -210,14 +214,13 @@ class HomeActivity1 : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Simple approach - avoid edge-to-edge complexities
         enableEdgeToEdge()
-
-        // Set status bar to transparent
         window.statusBarColor = android.graphics.Color.TRANSPARENT
-
         Log.d("HomeActivity1", "Activity created")
+
+        // ✅ Check first-time launch and subscription status
+        checkFirstTimeLaunch()
+        checkSubscriptionStatus()
 
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Log.e("HomeActivity1", "Uncaught exception in thread: ${thread.name}", throwable)
@@ -236,6 +239,8 @@ class HomeActivity1 : ComponentActivity() {
                     isRefreshing = isRefreshing,
                     showSuccessToast = showSuccessToast,
                     isUploadingImage = isUploadingImage,
+                    isFirstTimeLaunch = isFirstTimeLaunch,
+                    hasActiveSubscription = hasActiveSubscription,
                     onRefresh = {
                         if (!isUploadingImage) {
                             isRefreshing = true
@@ -255,6 +260,32 @@ class HomeActivity1 : ComponentActivity() {
         listenForBanStatus()
         listenForAccountChanges()
         fetchUserData()
+    }
+
+    private fun checkFirstTimeLaunch() {
+        val sharedPrefs = getSharedPreferences("MovieFlixPrefs", MODE_PRIVATE)
+        isFirstTimeLaunch = sharedPrefs.getBoolean("isFirstTimeLaunch", true)
+    }
+
+    private fun markFirstLaunchComplete() {
+        val sharedPrefs = getSharedPreferences("MovieFlixPrefs", MODE_PRIVATE)
+        sharedPrefs.edit().putBoolean("isFirstTimeLaunch", false).apply()
+        isFirstTimeLaunch = false
+    }
+
+    private fun checkSubscriptionStatus() {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+        FirebaseFirestore.getInstance()
+            .collection("subscriptions")
+            .whereEqualTo("userId", userId)
+            .addSnapshotListener { snapshot, _ ->
+                val activeSub = snapshot?.documents?.firstOrNull { doc ->
+                    val expiryDate = doc.getTimestamp("expiryDate")?.toDate()
+                    expiryDate != null && expiryDate.after(java.util.Date())
+                }
+                hasActiveSubscription = activeSub != null
+            }
     }
 
     private var currentRole: String? = null // To track the role locally
@@ -624,6 +655,7 @@ enum class AppDestinations(
     val icon: ImageVector,
 ) {
     HOME("Home", Icons.Default.Home),
+    SUBSCRIPTION("Subscribe", Icons.Default.CardMembership),
     FAVORITES("Favorites", Icons.Default.Favorite),
     PROFILE("Profile", Icons.Default.AccountCircle),
 }
@@ -641,6 +673,8 @@ fun UserApp(
     isRefreshing: Boolean,
     showSuccessToast: Boolean,
     isUploadingImage: Boolean,
+    isFirstTimeLaunch: Boolean,
+    hasActiveSubscription: Boolean,
     onRefresh: () -> Unit,
     onHideSuccessToast: () -> Unit,
     onImageSelected: (String) -> Unit
@@ -649,6 +683,9 @@ fun UserApp(
 
     // ✅ 1. State for View Image Dialog
     var showImageDialog by remember { mutableStateOf(false) }
+
+    // ✅ Show welcome dialog EVERY TIME if no active subscription
+    var showWelcomeDialog by remember { mutableStateOf(!hasActiveSubscription) }
 
     var showImageSelectionDialog by remember { mutableStateOf(false) }
     var showExitConfirmation by remember { mutableStateOf(false) }
@@ -661,11 +698,12 @@ fun UserApp(
     val activity = context as? Activity
     val localImageBitmap = userImageBitmap
 
-    BackHandler(enabled = !showExitConfirmation && !passwordDialogOpen && !showImageDialog) {
+    BackHandler(enabled = !showExitConfirmation && !passwordDialogOpen && !showImageDialog && !showWelcomeDialog) {
         when {
             playingMovie != null -> playingMovie = null
             selectedMovie != null -> selectedMovie = null
-            showImageDialog -> showImageDialog = false // ✅ Close image dialog on back
+            showImageDialog -> showImageDialog = false
+            showWelcomeDialog -> showWelcomeDialog = false // Just close dialog, don't mark complete
             currentDestination != AppDestinations.HOME -> currentDestination = AppDestinations.HOME
             else -> showExitConfirmation = true
         }
@@ -799,6 +837,10 @@ fun UserApp(
                                 userName = userName,
                                 onMovieClick = { selectedMovie = it },
                                 onNavigateToFavorites = { currentDestination = AppDestinations.FAVORITES },
+                                onNavigateToSubscription = { currentDestination = AppDestinations.SUBSCRIPTION },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            AppDestinations.SUBSCRIPTION -> UserSubscriptionContent(
                                 modifier = Modifier.fillMaxSize()
                             )
                             AppDestinations.FAVORITES -> UserFavoritesContent(
@@ -829,6 +871,10 @@ fun UserApp(
                             userName = userName,
                             onMovieClick = { selectedMovie = it },
                             onNavigateToFavorites = { currentDestination = AppDestinations.FAVORITES },
+                            onNavigateToSubscription = { currentDestination = AppDestinations.SUBSCRIPTION },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        AppDestinations.SUBSCRIPTION -> UserSubscriptionContent(
                             modifier = Modifier.fillMaxSize()
                         )
                         AppDestinations.FAVORITES -> UserFavoritesContent(
@@ -926,10 +972,76 @@ fun UserApp(
                 onPasswordChanged = { _ -> passwordDialogOpen = false; onRefresh() }
             )
         }
+
+        // ✅ Welcome Dialog - Shows every time user launches app without active subscription
+        if (showWelcomeDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showWelcomeDialog = false
+                },
+                containerColor = Color(0xFF1E1E1E),
+                shape = RoundedCornerShape(20.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Movie,
+                            contentDescription = null,
+                            tint = Color(0xFF2ECC71),
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "Welcome to MovieFlix!",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                text = {
+                    Column {
+                        Text(
+                            "You can watch movie trailers for free.",
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Subscribe now to unlock full movies and enjoy unlimited streaming!",
+                            color = Color.White.copy(0.8f),
+                            fontSize = 14.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showWelcomeDialog = false
+                            // Navigate to subscription tab
+                            currentDestination = AppDestinations.SUBSCRIPTION
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2ECC71)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.CardMembership, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Subscribe Now", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            showWelcomeDialog = false
+                        }
+                    ) {
+                        Text("Maybe Later", color = Color.LightGray)
+                    }
+                }
+            )
+        }
     }
 }
-
-
 
 
 
@@ -939,7 +1051,8 @@ fun UserApp(
 fun UserHomeContent(
     userName: String,
     onMovieClick: (MovieItem) -> Unit,
-    onNavigateToFavorites: () -> Unit, // ✅ Added Param
+    onNavigateToFavorites: () -> Unit,
+    onNavigateToSubscription: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val viewModel: UserHomeViewModel = viewModel()
@@ -987,7 +1100,9 @@ fun UserHomeContent(
                         // Stats Cards
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             UserStatCard(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onNavigateToSubscription() },
                                 title = "Subscription",
                                 value = userStats.subscriptionStatus,
                                 icon = Icons.Default.CardMembership,
@@ -1609,6 +1724,271 @@ fun UserProfileContent(
                 color = if (isUploadingImage) Color.LightGray else Color.White,
                 fontWeight = FontWeight.Bold
             )
+        }
+    }
+}
+
+// Data class for subscription plans
+data class SubscriptionPlan(
+    val id: String = "",
+    val name: String = "",
+    val price: Int = 0,
+    val duration: Int = 30,
+    val description: String = ""
+)
+
+@Composable
+fun UserSubscriptionContent(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid
+    val db = FirebaseFirestore.getInstance()
+
+    var subscriptionPlans by remember { mutableStateOf<List<SubscriptionPlan>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var activeSubscription by remember { mutableStateOf<String?>(null) }
+    var expiryDate by remember { mutableStateOf<String?>(null) }
+
+    val emeraldGreen = Color(0xFF2ECC71)
+
+    // Fetch subscription plans and check active subscription
+    LaunchedEffect(Unit) {
+        // Check active subscription
+        if (userId != null) {
+            db.collection("subscriptions")
+                .whereEqualTo("userId", userId)
+                .addSnapshotListener { snapshot, _ ->
+                    val activeSub = snapshot?.documents?.firstOrNull { doc ->
+                        val expiry = doc.getTimestamp("expiryDate")?.toDate()
+                        expiry != null && expiry.after(Date())
+                    }
+                    activeSubscription = activeSub?.getString("planName")
+
+                    // Format expiry date
+                    val expiry = activeSub?.getTimestamp("expiryDate")?.toDate()
+                    if (expiry != null) {
+                        val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                        expiryDate = sdf.format(expiry)
+                    }
+                }
+        }
+
+        // Fetch available plans
+        db.collection("subscription_plans")
+            .orderBy("price")
+            .get()
+            .addOnSuccessListener { docs ->
+                subscriptionPlans = docs.mapNotNull { doc ->
+                    try {
+                        SubscriptionPlan(
+                            id = doc.id,
+                            name = doc.getString("name") ?: "",
+                            price = (doc.get("price") as? Number)?.toInt() ?: 0,
+                            duration = (doc.get("duration") as? Number)?.toInt() ?: 30,
+                            description = doc.getString("description") ?: ""
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                isLoading = false
+            }
+            .addOnFailureListener {
+                isLoading = false
+            }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(16.dp))
+
+        Icon(
+            Icons.Default.MovieFilter,
+            contentDescription = null,
+            tint = emeraldGreen,
+            modifier = Modifier.size(80.dp)
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            "Choose Your Plan",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            "Unlock unlimited movies and TV shows",
+            fontSize = 14.sp,
+            color = Color.LightGray
+        )
+
+        if (activeSubscription != null) {
+            Spacer(Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = emeraldGreen.copy(0.2f)
+                ),
+                border = BorderStroke(1.dp, emeraldGreen)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.CheckCircle, null, tint = emeraldGreen)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                "Active Plan: $activeSubscription",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            if (expiryDate != null) {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Expires on: $expiryDate",
+                                    color = Color.White.copy(0.7f),
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(400.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = emeraldGreen)
+            }
+        } else if (subscriptionPlans.isEmpty()) {
+            Text(
+                "No subscription plans available",
+                color = Color.LightGray,
+                fontSize = 16.sp
+            )
+        } else {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                subscriptionPlans.forEach { plan ->
+                    SubscriptionPlanCard(
+                        plan = plan,
+                        isActive = plan.name == activeSubscription,
+                        onClick = {
+                            // Handle subscription purchase
+                            android.widget.Toast.makeText(
+                                context,
+                                "Contact admin to purchase ${plan.name}",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SubscriptionPlanCard(
+    plan: SubscriptionPlan,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    val emeraldGreen = Color(0xFF2ECC71)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isActive) emeraldGreen.copy(0.1f) else Color.White.copy(0.05f)
+        ),
+        border = BorderStroke(
+            2.dp,
+            if (isActive) emeraldGreen else Color.White.copy(0.1f)
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    plan.name,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                if (isActive) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Active",
+                        tint = emeraldGreen,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                "₹${plan.price}",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = emeraldGreen
+            )
+
+            Text(
+                "for ${plan.duration} days",
+                fontSize = 14.sp,
+                color = Color.LightGray
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                plan.description,
+                fontSize = 14.sp,
+                color = Color.White.copy(0.8f)
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = onClick,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isActive,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isActive) Color.Gray else emeraldGreen,
+                    disabledContainerColor = Color.Gray
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    if (isActive) "Current Plan" else "Subscribe",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(8.dp)
+                )
+            }
         }
     }
 }
@@ -2327,6 +2707,5 @@ fun MoviePlayerScreen(
         }
     }
 }
-
 
 
