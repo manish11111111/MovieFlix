@@ -34,6 +34,11 @@ import com.google.firebase.firestore.SetOptions
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.*
+import kotlin.compareTo
+import kotlin.div
+import kotlin.text.compareTo
+import kotlin.text.toFloat
+import kotlin.text.toInt
 
 class CompleteProfileActivity : AppCompatActivity() {
 
@@ -331,14 +336,80 @@ class CompleteProfileActivity : AppCompatActivity() {
 
     private fun uriToBase64(uri: Uri): String? {
         return try {
-            val stream = contentResolver.openInputStream(uri)
-            val original = BitmapFactory.decodeStream(stream)
-            val scaled = Bitmap.createScaledBitmap(original, 500, (500 * (original.height.toFloat() / original.width)).toInt(), true)
+            Log.d("CompleteProfile", "Processing image from URI: $uri")
+
+            // First, get image dimensions without loading the full bitmap
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+
+            var stream = contentResolver.openInputStream(uri)
+            BitmapFactory.decodeStream(stream, null, options)
+            stream?.close()
+
+            val imageWidth = options.outWidth
+            val imageHeight = options.outHeight
+            Log.d("CompleteProfile", "Original image size: ${imageWidth}x${imageHeight}")
+
+            if (imageWidth <= 0 || imageHeight <= 0) {
+                Log.e("CompleteProfile", "Invalid image dimensions")
+                return null
+            }
+
+            // Calculate sample size to reduce memory usage
+            val maxDimension = 1024 // Max width/height
+            var sampleSize = 1
+            if (imageWidth > maxDimension || imageHeight > maxDimension) {
+                val widthRatio = imageWidth / maxDimension
+                val heightRatio = imageHeight / maxDimension
+                sampleSize = if (widthRatio > heightRatio) widthRatio else heightRatio
+            }
+
+            Log.d("CompleteProfile", "Using sample size: $sampleSize")
+
+            // Now decode with sample size to reduce memory
+            val decodingOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.RGB_565 // Use less memory
+            }
+
+            stream = contentResolver.openInputStream(uri)
+            val original = BitmapFactory.decodeStream(stream, null, decodingOptions)
+            stream?.close()
+
+            if (original == null) {
+                Log.e("CompleteProfile", "Failed to decode bitmap")
+                return null
+            }
+
+            Log.d("CompleteProfile", "Bitmap decoded successfully: ${original.width}x${original.height}")
+
+            // Scale to a reasonable size (500px width)
+            val targetWidth = 500
+            val targetHeight = (targetWidth * (original.height.toFloat() / original.width)).toInt()
+            Log.d("CompleteProfile", "Scaling to: ${targetWidth}x${targetHeight}")
+
+            val scaled = Bitmap.createScaledBitmap(original, targetWidth, targetHeight, true)
+            original.recycle() // Free original bitmap memory
+
             val out = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.JPEG, 70, out)
-            Base64.encodeToString(out.toByteArray(), Base64.DEFAULT)
-        } catch (e: Exception) { null }
+            scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            scaled.recycle() // Free scaled bitmap memory
+
+            val byteArray = out.toByteArray()
+            Log.d("CompleteProfile", "Base64 size: ${byteArray.size / 1024}KB")
+
+            Base64.encodeToString(byteArray, Base64.DEFAULT)
+
+        } catch (e: OutOfMemoryError) {
+            Log.e("CompleteProfile", "Out of memory while processing image", e)
+            null
+        } catch (e: Exception) {
+            Log.e("CompleteProfile", "Error processing image", e)
+            null
+        }
     }
+
 
     private fun showSettingsDialog(type: String) {
         MaterialAlertDialogBuilder(this)

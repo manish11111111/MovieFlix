@@ -60,6 +60,8 @@
 
         <activity
             android:name=".HomeActivity1"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
+            android:hardwareAccelerated="true"
             android:exported="false" />
 
         <activity

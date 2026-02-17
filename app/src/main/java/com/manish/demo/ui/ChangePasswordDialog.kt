@@ -1,8 +1,5 @@
 package com.manish.demo.ui
 
-import android.widget.Toast
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -11,24 +8,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.manish.demo.ui.components.CustomToastCompose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun ChangePasswordDialog(
     onDismiss: () -> Unit,
-    onPasswordChanged: (String) -> Unit // Now returns a message string
+    onPasswordChanged: (String) -> Unit
 ) {
     var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
@@ -40,13 +34,27 @@ fun ChangePasswordDialog(
     var newPasswordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
+    // Toast State
+    var showCustomToast by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf("") }
+
+    // Coroutine scope for delayed dismissal
+    val coroutineScope = rememberCoroutineScope()
+
+    // Show Custom Toast
+    CustomToastCompose(
+        message = toastMessage,
+        showToast = showCustomToast,
+        onDismiss = { showCustomToast = false }
+    )
+
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
         containerColor = Color(0xFF1E1E1E),
         title = { Text("Change Password", color = Color.White) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Old Password Field with eye icon
+                // Old Password Field
                 OutlinedTextField(
                     value = oldPassword,
                     onValueChange = { oldPassword = it },
@@ -63,14 +71,14 @@ fun ChangePasswordDialog(
                         IconButton(onClick = { oldPasswordVisible = !oldPasswordVisible }) {
                             Icon(
                                 imageVector = if (oldPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (oldPasswordVisible) "Hide password" else "Show password",
+                                contentDescription = null,
                                 tint = Color.Gray
                             )
                         }
                     }
                 )
 
-                // New Password Field with eye icon
+                // New Password Field
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
@@ -87,14 +95,14 @@ fun ChangePasswordDialog(
                         IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
                             Icon(
                                 imageVector = if (newPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (newPasswordVisible) "Hide password" else "Show password",
+                                contentDescription = null,
                                 tint = Color.Gray
                             )
                         }
                     }
                 )
 
-                // Confirm Password Field with eye icon
+                // Confirm Password Field
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
@@ -111,7 +119,7 @@ fun ChangePasswordDialog(
                         IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                             Icon(
                                 imageVector = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password",
+                                contentDescription = null,
                                 tint = Color.Gray
                             )
                         }
@@ -133,40 +141,42 @@ fun ChangePasswordDialog(
                 enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2ECC71)),
                 onClick = {
-
-                    // Validation
+                    // Validation 1: Empty Fields
                     if (oldPassword.isEmpty() || newPassword.isEmpty()) {
-                        onPasswordChanged("Please fill all fields")
+                        toastMessage = "Please fill all fields"
+                        showCustomToast = true
                         return@Button
                     }
 
+                    // Validation 2: Mismatch
                     if (newPassword != confirmPassword) {
-                        onPasswordChanged("New passwords do not match!")
+                        toastMessage = "New passwords do not match!"
+                        showCustomToast = true
                         return@Button
                     }
 
+                    // Validation 3: Length
                     if (newPassword.length < 8) {
-                        onPasswordChanged("Password must be at least 8 characters")
+                        toastMessage = "Password must be at least 8 characters"
+                        showCustomToast = true
                         return@Button
                     }
 
-                    isLoading = true
+                    isLoading = true // Start Loader
+
                     val user = FirebaseAuth.getInstance().currentUser
-                    val credential =
-                        EmailAuthProvider.getCredential(user?.email!!, oldPassword)
+                    if (user?.email == null) return@Button
+
+                    val credential = EmailAuthProvider.getCredential(user.email!!, oldPassword)
 
                     // Re-authenticate
                     user.reauthenticate(credential).addOnCompleteListener { reAuthTask ->
-
                         if (reAuthTask.isSuccessful) {
-
+                            // Update Password
                             user.updatePassword(newPassword)
                                 .addOnCompleteListener { updateTask ->
-
-                                    isLoading = false
-
                                     if (updateTask.isSuccessful) {
-
+                                        // Update Firestore timestamp
                                         FirebaseFirestore.getInstance()
                                             .collection("users")
                                             .document(user.uid)
@@ -175,19 +185,29 @@ fun ChangePasswordDialog(
                                                 com.google.firebase.Timestamp.now()
                                             )
 
-                                        onPasswordChanged("Password changed successfully")
+                                        // Success Logic with Delay
+                                        isLoading = false
+                                        toastMessage = "Password changed successfully"
+                                        showCustomToast = true
+
+                                        coroutineScope.launch {
+                                            delay(1500) // Wait for toast to be seen
+                                            onPasswordChanged("Password changed successfully")
+                                        }
 
                                     } else {
-                                        onPasswordChanged(
-                                            updateTask.exception?.message
-                                                ?: "Password update failed"
-                                        )
+                                        // Update Failure
+                                        isLoading = false
+                                        val errorMsg = updateTask.exception?.message ?: "Password update failed"
+                                        toastMessage = errorMsg
+                                        showCustomToast = true
                                     }
                                 }
-
                         } else {
+                            // Re-auth Failure (Incorrect Old Password)
                             isLoading = false
-                            onPasswordChanged("Incorrect old password")
+                            toastMessage = "Incorrect old password"
+                            showCustomToast = true
                         }
                     }
                 }
@@ -197,10 +217,7 @@ fun ChangePasswordDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isLoading) {
-                Text(
-                    "CANCEL",
-                    color = Color.Gray
-                )
+                Text("CANCEL", color = Color.Gray)
             }
         }
     )

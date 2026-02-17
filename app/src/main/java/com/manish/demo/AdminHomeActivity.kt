@@ -1,5 +1,6 @@
 package com.manish.demo
 
+import androidx.compose.ui.text.style.TextOverflow
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.android.gms.tasks.Task
 import android.os.Build
@@ -70,6 +71,12 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.compareTo
+import kotlin.div
+import kotlin.or
+import kotlin.text.compareTo
+import kotlin.text.toInt
+import kotlin.times
 
 // --- DATA MODELS & CONSTANTS ---
 data class DashboardStats(
@@ -226,13 +233,40 @@ class AdminHomeActivity : ComponentActivity() {
     private var isRefreshing by mutableStateOf(false)
     private var showSuccessToast by mutableStateOf(false)
     private var isUploadingImage by mutableStateOf(false)
-
+    private var hasActiveSubscription by mutableStateOf(false)
     private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) handleImageSelection(uri)
     }
 
     private val cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
         if (bitmap != null) handleCameraImage(bitmap)
+    }
+    private val requestCameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            handleImageSourceSelection("camera_action")
+        } else {
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.CAMERA)) {
+                showSettingsDialog("Camera")
+            }
+        }
+    }
+    private val requestGalleryPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            handleImageSourceSelection("gallery_action")
+        } else {
+            val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                android.Manifest.permission.READ_MEDIA_IMAGES
+            else
+                android.Manifest.permission.READ_EXTERNAL_STORAGE
+
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
+                showSettingsDialog("Gallery/Storage")
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -304,20 +338,140 @@ class AdminHomeActivity : ComponentActivity() {
 
     private fun handleImageSourceSelection(sourceType: String) {
         when (sourceType) {
-            "gallery" -> galleryLauncher.launch("image/*")
-            "camera" -> if (checkPermission(android.Manifest.permission.CAMERA)) cameraLauncher.launch(null) else requestPermission(android.Manifest.permission.CAMERA, 101)
+            "gallery" -> {
+                val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                    android.Manifest.permission.READ_MEDIA_IMAGES
+                else
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE
+
+                if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+                    galleryLauncher.launch("image/*")
+                } else {
+                    requestGalleryPermissionLauncher.launch(permission)
+                }
+            }
+            "gallery_action" -> {
+                galleryLauncher.launch("image/*")
+            }
+            "camera" -> {
+                if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    cameraLauncher.launch(null)
+                } else {
+                    requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                }
+            }
+            "camera_action" -> {
+                cameraLauncher.launch(null)
+            }
         }
     }
 
-    private fun handleImageSelection(imageUri: Uri) {
-        isUploadingImage = true; updateUI()
-        try {
-            val inputStream: InputStream? = contentResolver.openInputStream(imageUri)
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream?.close()
-            bitmap?.let { updateProfileImageInFirebase(convertBitmapToBase64(it)) }
-        } catch (e: Exception) { isUploadingImage = false; updateUI() }
+    private fun showSettingsDialog(permissionName: String) {
+        if (!isFinishing) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Permission Required")
+                .setMessage("You have permanently denied $permissionName access. Please enable it in app settings to update your profile photo.")
+                .setPositiveButton("Go to Settings") { _, _ ->
+                    try {
+                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        val uri = Uri.fromParts("package", packageName, null)
+                        intent.data = uri
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
+
+
+    private fun handleImageSelection(imageUri: Uri) {
+        isUploadingImage = true
+        updateUI()
+
+        try {
+            Log.d("AdminHome", "Processing image from URI: $imageUri")
+
+            // First, get image dimensions without loading the full bitmap
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+
+            var inputStream: InputStream? = contentResolver.openInputStream(imageUri)
+            BitmapFactory.decodeStream(inputStream, null, options)
+            inputStream?.close()
+
+            val imageWidth = options.outWidth
+            val imageHeight = options.outHeight
+            Log.d("AdminHome", "Original image size: ${imageWidth}x${imageHeight}")
+
+            if (imageWidth <= 0 || imageHeight <= 0) {
+                Log.e("AdminHome", "Invalid image dimensions")
+                isUploadingImage = false
+                updateUI()
+                return
+            }
+
+            // Calculate sample size to reduce memory usage
+            val maxDimension = 1024 // Max width/height
+            var sampleSize = 1
+            if (imageWidth > maxDimension || imageHeight > maxDimension) {
+                val widthRatio = imageWidth / maxDimension
+                val heightRatio = imageHeight / maxDimension
+                sampleSize = if (widthRatio > heightRatio) widthRatio else heightRatio
+            }
+
+            Log.d("AdminHome", "Using sample size: $sampleSize")
+
+            // Now decode with sample size to reduce memory
+            val decodingOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.RGB_565 // Use less memory
+            }
+
+            inputStream = contentResolver.openInputStream(imageUri)
+            val bitmap = BitmapFactory.decodeStream(inputStream, null, decodingOptions)
+            inputStream?.close()
+
+            if (bitmap != null) {
+                Log.d("AdminHome", "Bitmap decoded successfully: ${bitmap.width}x${bitmap.height}")
+
+                // Further scale if still too large
+                val scaledBitmap = if (bitmap.width > 800 || bitmap.height > 800) {
+                    val scale = 800f / Math.max(bitmap.width, bitmap.height)
+                    val newWidth = (bitmap.width * scale).toInt()
+                    val newHeight = (bitmap.height * scale).toInt()
+                    Log.d("AdminHome", "Scaling to: ${newWidth}x${newHeight}")
+                    val scaled = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+                    bitmap.recycle() // Free original bitmap memory
+                    scaled
+                } else {
+                    bitmap
+                }
+
+                updateProfileImageInFirebase(convertBitmapToBase64(scaledBitmap))
+                scaledBitmap.recycle() // Free scaled bitmap memory
+
+            } else {
+                Log.e("AdminHome", "Failed to decode bitmap from gallery URI")
+                isUploadingImage = false
+                updateUI()
+            }
+
+        } catch (e: OutOfMemoryError) {
+            Log.e("AdminHome", "Out of memory while processing image", e)
+            isUploadingImage = false
+            updateUI()
+        } catch (e: Exception) {
+            Log.e("AdminHome", "Error processing gallery image", e)
+            isUploadingImage = false
+            updateUI()
+        }
+    }
+
+
 
     private fun handleCameraImage(bitmap: Bitmap) {
         isUploadingImage = true; updateUI()
@@ -326,9 +480,13 @@ class AdminHomeActivity : ComponentActivity() {
 
     private fun convertBitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream)
-        return Base64.encodeToString(outputStream.toByteArray(), Base64.DEFAULT)
+        // Use higher quality compression, the bitmap is already scaled down
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
+        val byteArray = outputStream.toByteArray()
+        Log.d("AdminHome", "Base64 size: ${byteArray.size / 1024}KB")
+        return Base64.encodeToString(byteArray, Base64.DEFAULT)
     }
+
 
     private fun updateProfileImageInFirebase(base64Image: String) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
@@ -379,6 +537,10 @@ enum class AdminDestinations(val label: String, val icon: ImageVector) {
     PROFILE("Profile", Icons.Default.AccountCircle),
 }
 
+// ... existing imports ...
+
+// ... existing code ...
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminApp(
@@ -388,6 +550,10 @@ fun AdminApp(
     onHideSuccessToast: () -> Unit, onImageSelected: (String) -> Unit
 ) {
     var currentDestination by rememberSaveable { mutableStateOf(AdminDestinations.HOME) }
+
+    // ✅ ADD IMAGE DIALOG STATE
+    var showImageDialog by remember { mutableStateOf(false) }
+
     var showImageSelectionDialog by remember { mutableStateOf(false) }
     var showExitConfirmation by remember { mutableStateOf(false) }
     var passwordDialogOpen by remember { mutableStateOf(false) }
@@ -401,9 +567,12 @@ fun AdminApp(
     val activity = context as? Activity
     val dashStats by dashViewModel.stats
 
-    BackHandler(enabled = !showExitConfirmation && !passwordDialogOpen) {
-        if (currentDestination != AdminDestinations.HOME) currentDestination = AdminDestinations.HOME
-        else showExitConfirmation = true
+    BackHandler(enabled = !showExitConfirmation && !passwordDialogOpen && !showImageDialog) {
+        when {
+            showImageDialog -> showImageDialog = false
+            currentDestination != AdminDestinations.HOME -> currentDestination = AdminDestinations.HOME
+            else -> showExitConfirmation = true
+        }
     }
 
     LaunchedEffect(showSuccessToast) {
@@ -438,6 +607,44 @@ fun AdminApp(
                                 Text("MovieFlix", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         },
+                        actions = {
+                            if (currentDestination == AdminDestinations.HOME) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.End,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                ) {
+                                    Text(
+                                        text = adminName.split(" ").firstOrNull() ?: adminName,
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+
+                                    if (adminImageBitmap != null) {
+                                        Image(
+                                            bitmap = adminImageBitmap.asImageBitmap(),
+                                            contentDescription = "Admin Profile",
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .border(1.5.dp, Color(0xFF2ECC71), CircleShape),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.AccountCircle,
+                                            contentDescription = "Admin Profile",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                     )
                 }
@@ -446,11 +653,30 @@ fun AdminApp(
                 NavigationBar(containerColor = Color.Black.copy(0.3f)) {
                     AdminDestinations.entries.forEach { item ->
                         NavigationBarItem(
-                            icon = { Icon(item.icon, null) },
+                            icon = {
+                                if (item == AdminDestinations.PROFILE && adminImageBitmap != null) {
+                                    Image(
+                                        bitmap = adminImageBitmap.asImageBitmap(),
+                                        contentDescription = item.label,
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .border(1.dp, if (item == currentDestination) Color.White else Color.Gray, CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(item.icon, null)
+                                }
+                            },
                             label = { Text(item.label) },
                             selected = item == currentDestination,
                             onClick = { if (!isUploadingImage) currentDestination = item },
-                            colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White, unselectedIconColor = Color.Gray, indicatorColor = Color.White.copy(0.2f))
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = Color.White,
+                                unselectedIconColor = Color.Gray,
+                                indicatorColor = Color.White.copy(0.2f)
+                            )
                         )
                     }
                 }
@@ -466,7 +692,7 @@ fun AdminApp(
                 when (currentDestination) {
                     AdminDestinations.HOME -> AdminDashboardContent(
                         adminName = adminName,
-                        stats = dashStats, // Pass the live stats here
+                        stats = dashStats,
                         onNavigate = { currentDestination = it }
                     )
                     AdminDestinations.MOVIES -> MoviesManagementScreen(viewModel = adminViewModel, modifier = Modifier.fillMaxSize())
@@ -474,8 +700,44 @@ fun AdminApp(
                     AdminDestinations.SUBSCRIPTIONS -> SubscriptionManagementScreen(viewModel = subscriptionViewModel, modifier = Modifier.fillMaxSize())
                     AdminDestinations.PROFILE -> AdminProfileContent(
                         adminName, adminEmail, adminPhone, adminDob, adminImageBitmap, passwordLastUpdated, isUploadingImage,
+                        onShowImageDialog = { showImageDialog = true }, // ✅ ADDED
                         onEditImageClicked = { showImageSelectionDialog = true },
                         onPasswordChangeClicked = { passwordDialogOpen = true }
+                    )
+                }
+            }
+        }
+
+        // ✅ ADD IMAGE ENLARGEMENT DIALOG
+        if (showImageDialog && adminImageBitmap != null) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showImageDialog = false },
+                properties = androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = false
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.85f))
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showImageDialog = false }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = adminImageBitmap.asImageBitmap(),
+                        contentDescription = "Full Size Profile",
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .aspectRatio(1f)
+                            .clip(CircleShape)
+                            .border(3.dp, Color.White, CircleShape)
+                            .clickable(enabled = false) {},
+                        contentScale = ContentScale.Crop
                     )
                 }
             }
@@ -502,20 +764,16 @@ fun AdminApp(
         if (passwordDialogOpen) {
             ChangePasswordDialog(
                 onDismiss = { passwordDialogOpen = false },
-                onPasswordChanged = { message ->
-                    passwordDialogOpen = false        // close dialog
-                    toastMessage = message            // set toast message
-                    showCustomToast = true            // show custom toast
-
-                    // --- ADD THIS LINE TO LOG THE ACTIVITY ---
-                    adminViewModel.logActivity("Your Password was changed successfully", "security")
-
-                    onRefresh()                       // refresh profile data
+                onPasswordChanged = { _ ->
+                    passwordDialogOpen = false
+                    onRefresh()
                 }
             )
         }
     }
 }
+
+
 
 // --- AMAZING DYNAMIC DASHBOARD ---
 @Composable
@@ -619,17 +877,84 @@ fun DashboardActionIcon(label: String, icon: ImageVector, color: Color, onClick:
 fun AdminProfileContent(
     adminName: String, adminEmail: String, adminPhone: String, adminDob: String,
     adminImageBitmap: Bitmap?, passwordLastUpdated: String, isUploadingImage: Boolean,
+    onShowImageDialog: () -> Unit, // ✅ ADDED PARAMETER
     onEditImageClicked: () -> Unit, onPasswordChangeClicked: () -> Unit
 ) {
     val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+
+        // ✅ UPDATED PROFILE IMAGE SECTION WITH EDIT ICON
         Box(contentAlignment = Alignment.Center) {
-            if (adminImageBitmap != null) {
-                Image(bitmap = adminImageBitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.size(120.dp).clip(CircleShape).border(2.dp, Color.White, CircleShape).clickable { if (!isUploadingImage) onEditImageClicked() }, contentScale = ContentScale.Crop)
-            } else {
-                Icon(Icons.Default.AccountCircle, null, modifier = Modifier.size(120.dp).clickable { if (!isUploadingImage) onEditImageClicked() }, tint = Color.LightGray)
+            Box(contentAlignment = Alignment.BottomEnd) {
+                if (adminImageBitmap != null) {
+                    Image(
+                        bitmap = adminImageBitmap.asImageBitmap(),
+                        contentDescription = "Admin Profile",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.White, CircleShape)
+                            .clickable {
+                                if (!isUploadingImage) {
+                                    onShowImageDialog()
+                                }
+                            },
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.AccountCircle,
+                        contentDescription = "Default Profile",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clickable {
+                                if (!isUploadingImage) {
+                                    onShowImageDialog()
+                                }
+                            },
+                        tint = Color.LightGray
+                    )
+                }
+
+                // ✅ EDIT ICON OVERLAY
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit Photo",
+                    tint = if (isUploadingImage) Color.Gray else Color.White,
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isUploadingImage) Color.DarkGray.copy(alpha = 0.5f)
+                            else Color.Black.copy(alpha = 0.5f)
+                        )
+                        .clickable {
+                            if (!isUploadingImage) {
+                                onEditImageClicked()
+                            }
+                        }
+                        .padding(4.dp)
+                )
+            }
+
+            // ✅ LOADING INDICATOR
+            if (isUploadingImage) {
+                Box(
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(30.dp),
+                        strokeWidth = 3.dp
+                    )
+                }
             }
         }
+
         Spacer(Modifier.height(16.dp))
         Text(adminName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -640,32 +965,41 @@ fun AdminProfileContent(
         Spacer(Modifier.height(32.dp))
         Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
             Column(modifier = Modifier.padding(16.dp)) {
-                InfoRow(icon = Icons.Default.Email, text = adminEmail)
-                HorizontalDivider(color = Color.White.copy(0.2f))
-                InfoRow(icon = Icons.Default.Phone, text = adminPhone)
-                HorizontalDivider(color = Color.White.copy(0.2f))
-                InfoRow(icon = Icons.Default.Cake, text = adminDob)
+                InfoRow(icon = Icons.Default.Email, label = "Email", text = adminEmail)
+                HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+                InfoRow(icon = Icons.Default.Phone, label = "Phone", text = adminPhone)
+                HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+                InfoRow(icon = Icons.Default.Cake, label = "Date of Birth", text = adminDob)
                 HorizontalDivider(color = Color.White.copy(0.2f))
                 Row(modifier = Modifier.fillMaxWidth().clickable { if (!isUploadingImage) onPasswordChangeClicked() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.Lock, null, tint = if (isUploadingImage) Color.Gray else Color.White, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Password", color = Color.White)
-                        Text("Last updated: $passwordLastUpdated", fontSize = 12.sp, color = Color.LightGray)
+                        Text("Password", color = if (isUploadingImage) Color.Gray else Color.White)
+                        Text("Last updated: $passwordLastUpdated", fontSize = 12.sp, color = if (isUploadingImage) Color.DarkGray else Color.LightGray)
                     }
-                    Icon(Icons.Default.ChevronRight, null, tint = Color.White)
+                    Icon(Icons.Default.ChevronRight, null, tint = if (isUploadingImage) Color.Gray else Color.White)
                 }
             }
         }
         Spacer(Modifier.height(32.dp))
-        Button(onClick = {
-            FirebaseAuth.getInstance().signOut()
-            context.startActivity(Intent(context, LoginActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
-            (context as Activity).finish()
-        }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(0.7f))) {
-            Icon(Icons.Default.Logout, null, tint = Color.White)
+        Button(
+            onClick = {
+                if (!isUploadingImage) {
+                    FirebaseAuth.getInstance().signOut()
+                    context.startActivity(Intent(context, LoginActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+                    (context as Activity).finish()
+                }
+            },
+            enabled = !isUploadingImage,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Red.copy(alpha = if (isUploadingImage) 0.3f else 0.7f)
+            )
+        ) {
+            Icon(Icons.Default.Logout, null, tint = if (isUploadingImage) Color.LightGray else Color.White)
             Spacer(Modifier.width(8.dp))
-            Text("Logout", color = Color.White)
+            Text("Logout", color = if (isUploadingImage) Color.LightGray else Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }

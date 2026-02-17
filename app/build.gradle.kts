@@ -61,6 +61,7 @@ android {
 
 dependencies {
     dependencies {
+        implementation("androidx.webkit:webkit:1.8.0")
         implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
         // Networking
