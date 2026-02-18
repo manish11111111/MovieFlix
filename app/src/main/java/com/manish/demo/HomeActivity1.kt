@@ -1,5 +1,19 @@
 package com.manish.demo
 
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material3.Surface
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.material.icons.filled.LockOpen
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -124,7 +138,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -143,6 +156,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.util.UnstableApi
 import coil.compose.SubcomposeAsyncImage
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.SwipeRefreshIndicator
@@ -3894,205 +3908,257 @@ fun MoviePlayerScreen(
     }
 }
 
+@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun ExoPlayerScreen(onClose: () -> Unit) {
     val context = LocalContext.current
     val activity = context as? Activity
-    var showError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
 
-    // Manage orientation & immersive mode
-    DisposableEffect(Unit) {
-        val window = activity?.window
-        if (window != null) {
-            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            insetsController.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            insetsController.hide(WindowInsetsCompat.Type.systemBars())
-        }
-
-        onDispose {
-            val window = activity?.window
-            if (window != null) {
-                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                insetsController.show(WindowInsetsCompat.Type.systemBars())
-            }
+    // 1. PLAYER & UI STATE
+    val exoPlayer = remember {
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+            val videoUrl = "https://drive.google.com/u/0/uc?id=1Wzt2R8SUgXuFHZaLLpzQUqN08yhFHgw5&export=download&confirm=t"
+            setMediaItem(androidx.media3.common.MediaItem.fromUri(videoUrl))
+            prepare()
+            playWhenReady = true
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
+    var isPlaying by remember { mutableStateOf(true) }
+    var currentPosition by remember { mutableStateOf(0L) }
+    var totalDuration by remember { mutableStateOf(0L) }
+    var isControlsVisible by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(true) }
+    var isLocked by remember { mutableStateOf(false) }
+    var playbackSpeed by remember { mutableStateOf(1.0f) }
+
+    // Resize Modes: FIT = 0, FILL = 3, ZOOM = 4
+    var resizeMode by remember { mutableStateOf(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+
+    // 2. LIFECYCLE & IMMERSIVE SETUP
+    DisposableEffect(Unit) {
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        val window = activity?.window
+        val insetsController = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
+        insetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                isLoading = state == androidx.media3.common.Player.STATE_BUFFERING
+                if (state == androidx.media3.common.Player.STATE_READY) totalDuration = exoPlayer.duration
+            }
+            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+        }
+        exoPlayer.addListener(listener)
+
+        onDispose {
+            exoPlayer.release()
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            insetsController?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            currentPosition = exoPlayer.currentPosition
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+
+    LaunchedEffect(isControlsVisible, isPlaying, isLocked) {
+        if (isControlsVisible && isPlaying && !isLocked) {
+            kotlinx.coroutines.delay(4000)
+            isControlsVisible = false
+        }
+    }
+
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black)
+        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+            isControlsVisible = !isControlsVisible
+        }
     ) {
-        // VideoView Player
+
+        // ✅ THE VIDEO LAYER (Supports Fit, Fill, Zoom)
         AndroidView(
             factory = { ctx ->
-                val playerView = android.widget.VideoView(ctx)
-
-                try {
-                    // Load from assets folder (supports larger files)
-                    var videoLoaded = false
-                    try {
-                        // Check if file exists and get its size
-                        val afd = ctx.assets.openFd("my_movie.mp4")
-                        val fileSize = afd.length
-                        val fileSizeMB = fileSize / (1024 * 1024)
-                        afd.close()
-
-                        Log.d("ExoPlayer", "Video file size: $fileSizeMB MB")
-
-                        // Try to load the local video
-                        playerView.setVideoURI(
-                            Uri.parse("file:///android_asset/my_movie.mp4")
-                        )
-                        videoLoaded = true
-                    } catch (e: Exception) {
-                        Log.e("ExoPlayer", "Asset file not found or error, using sample video", e)
-                        videoLoaded = false
-                    }
-
-                    // If local video failed or doesn't exist, use a working sample video
-                    if (!videoLoaded) {
-                        // This is a known-good H.264 MP4 video (~64MB, 720p)
-                        val sampleVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-                        playerView.setVideoURI(Uri.parse(sampleVideoUrl))
-                        Log.d("ExoPlayer", "Using sample video from URL")
-                    }
-
-                    playerView.setOnPreparedListener { mp ->
-                        isLoading = false
-                        mp.isLooping = false
-                        mp.start()
-                        Log.d("ExoPlayer", "Video prepared and playing")
-                    }
-
-                    playerView.setOnErrorListener { _, what, extra ->
-                        isLoading = false
-                        showError = true
-                        Log.e("ExoPlayer", "Error playing video - What: $what, Extra: $extra")
-
-                        errorMessage = when {
-                            what == 1 && extra == -1004 -> "Video file may be corrupted or wrong codec.\n\nTry converting to MP4 with H.264 codec\n\nOr download a sample video:\nhttps://sample-videos.com"
-                            what == 1 -> "Cannot play this video format.\n\nRequired:\n• Format: MP4\n• Video: H.264\n• Audio: AAC\n\nConvert your video or use online converter:\nwww.videosmaller.com"
-                            extra == -1004 -> "Video file may be corrupted.\n\nTry re-downloading or converting the file"
-                            extra == -110 -> "Video codec not supported.\n\nUse H.264 video codec and AAC audio\n\nRecommended tool: HandBrake (free)"
-                            else -> "Cannot play this video.\n\nError code: $what, Extra: $extra\n\nTry using:\n• MP4 format\n• H.264 video codec\n• AAC audio codec"
-                        }
-                        true
-                    }
-
-                    playerView.setOnCompletionListener {
-                        Log.d("ExoPlayer", "Video completed")
-                    }
-                } catch (e: Exception) {
-                    isLoading = false
-                    showError = true
-                    errorMessage = "Error loading video.\n\n${e.message}\n\nUsing fallback sample video..."
-                    Log.e("ExoPlayer", "Error loading video", e)
-
-                    // Last resort: Try sample video
-                    try {
-                        val sampleVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-                        playerView.setVideoURI(Uri.parse(sampleVideoUrl))
-                    } catch (ex: Exception) {
-                        Log.e("ExoPlayer", "Fallback also failed", ex)
-                    }
+                androidx.media3.ui.PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = false
+                    this.resizeMode = resizeMode
+                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 }
-
-                playerView
             },
+            update = { it.resizeMode = resizeMode },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Loading Indicator
-        if (isLoading && !showError) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
+        // ✅ THE "GLASS" CONTROL OVERLAY
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isControlsVisible,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically()
+        ) {
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(0.8f), Color.Transparent, Color.Black.copy(0.8f))
+                    )
+                )
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF2ECC71),
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Loading video...",
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-        }
 
-        // Error Message
-        if (showError) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(0.95f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Movie,
-                        contentDescription = null,
-                        tint = Color.Red,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Cannot Play Video",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        errorMessage,
-                        color = Color.White.copy(0.8f),
-                        fontSize = 13.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    Button(
-                        onClick = onClose,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2ECC71)
-                        ),
-                        modifier = Modifier.height(48.dp)
+                if (!isLocked) {
+                    // --- TOP BAR (Movie Flix Branding) ---
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Close", fontWeight = FontWeight.Bold)
+                        IconButton(onClick = onClose) {
+                            Icon(androidx.compose.material.icons.Icons.Default.ArrowBack, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text("Now Streaming", color = Color.White.copy(0.6f), fontSize = 12.sp)
+                            Text("MovieFlix Premium", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        }
+
+                        // Speed Control Chip
+                        Surface(
+                            onClick = {
+                                playbackSpeed = if (playbackSpeed >= 2.0f) 0.75f else playbackSpeed + 0.25f
+                                exoPlayer.setPlaybackSpeed(playbackSpeed)
+                            },
+                            color = Color.White.copy(0.1f),
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(0.2f))
+                        ) {
+                            Text("${playbackSpeed}x", color = Color.White, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // --- CENTER ACTION HUB (Netflix Style) ---
+                    Row(
+                        modifier = Modifier.align(Alignment.Center),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(80.dp)
+                    ) {
+                        // Rewind 10s
+                        IconButton(onClick = { exoPlayer.seekTo(currentPosition - 10000) }) {
+                            Icon(androidx.compose.material.icons.Icons.Default.Replay10, null, tint = Color.White, modifier = Modifier.size(50.dp))
+                        }
+
+                        // Play/Pause Large Button
+                        Box(
+                            modifier = Modifier
+                                .size(90.dp)
+                                .background(Color.White.copy(0.15f), CircleShape)
+                                .border(2.dp, Color.White.copy(0.4f), CircleShape)
+                                .clickable { if (isPlaying) exoPlayer.pause() else exoPlayer.play() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) androidx.compose.material.icons.Icons.Default.Pause else androidx.compose.material.icons.Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(60.dp)
+                            )
+                        }
+
+                        // Forward 10s
+                        IconButton(onClick = { exoPlayer.seekTo(currentPosition + 10000) }) {
+                            Icon(androidx.compose.material.icons.Icons.Default.Forward10, null, tint = Color.White, modifier = Modifier.size(50.dp))
+                        }
+                    }
+
+                    // --- BOTTOM NAVIGATION & SEEKER ---
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 30.dp, vertical = 30.dp)
+                    ) {
+                        // Netflix Red Progress
+                        androidx.compose.material3.Slider(
+                            value = currentPosition.toFloat(),
+                            onValueChange = { exoPlayer.seekTo(it.toLong()) },
+                            valueRange = 0f..(if (totalDuration > 0) totalDuration.toFloat() else 1f),
+                            colors = androidx.compose.material3.SliderDefaults.colors(
+                                thumbColor = Color.Red,
+                                activeTrackColor = Color.Red,
+                                inactiveTrackColor = Color.Gray.copy(0.5f)
+                            )
+                        )
+
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(formatTime(currentPosition), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(" / ${formatTime(totalDuration)}", color = Color.White.copy(0.5f), fontSize = 14.sp)
+
+                            Spacer(Modifier.weight(1f))
+
+                            // ✅ BETTER FULLSCREEN / ASPECT RATIO TOGGLE
+                            IconButton(onClick = {
+                                resizeMode = when(resizeMode) {
+                                    0 -> 4 // Zoom
+                                    4 -> 3 // Fill
+                                    else -> 0 // Fit
+                                }
+                            }) {
+                                val (icon, label) = when(resizeMode) {
+                                    4 -> androidx.compose.material.icons.Icons.Default.FullscreenExit to "Original"
+                                    3 -> androidx.compose.material.icons.Icons.Default.AspectRatio to "Fill"
+                                    else -> androidx.compose.material.icons.Icons.Default.Fullscreen to "Zoom"
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(icon, null, tint = Color.White)
+                                    Text(label, color = Color.White, fontSize = 8.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- FLOATING LOCK BUTTON ---
+                Surface(
+                    onClick = { isLocked = !isLocked },
+                    color = if (isLocked) Color.Red.copy(0.8f) else Color.Black.copy(0.6f),
+                    shape = CircleShape,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 30.dp).size(50.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(0.2f))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            if (isLocked) androidx.compose.material.icons.Icons.Default.Lock else androidx.compose.material.icons.Icons.Default.LockOpen,
+                            null, tint = Color.White, modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
         }
 
-        // Close Button (Always visible)
-        if (!showError) {
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(24.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-            }
+        // Animated Loader
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center).size(60.dp), color = Color.Red, strokeWidth = 5.dp)
         }
     }
+}
+
+@Composable
+fun ControlIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(36.dp))
+        Text(label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// Helper to format time (00:00)
+fun formatTime(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%02d:%02d", minutes, seconds)
 }
 
 
@@ -4254,7 +4320,7 @@ fun WebViewPlayerScreen(
                     // We wait to see if a second tap follows
                     tapTimeout = setTimeout(() => {
                         // If you want to ALLOW pausing on single tap, do nothing here.
-                        // If you want to BLOCK pausing on single tap, we would need to 
+                        // If you want to BLOCK pausing on single tap, we would need to
                         // intercept the player's own listeners, which is very difficult.
                     }, DOUBLE_TAP_DELAY);
                 }
