@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.manish.demo">
 
     <uses-sdk
@@ -35,7 +36,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.Demo"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        tools:replace="android:theme">
 
         <!-- FileProvider for Camera sharing -->
         <provider
@@ -80,6 +82,13 @@
         <activity
             android:name=".GetStartedActivity"
             android:exported="false" />
+
+        <!-- ✅ eSewa Payment Handler Activity -->
+        <activity
+            android:name=".ESewaPaymentHandler"
+            android:configChanges="orientation|screenSize"
+            android:label="eSewa Payment"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
         <service
             android:name=".MyFcmService"

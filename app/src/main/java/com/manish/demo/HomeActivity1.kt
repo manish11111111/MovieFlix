@@ -22,6 +22,7 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -2135,6 +2136,10 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val userId = FirebaseAuth.getInstance().currentUser?.uid
     val db = FirebaseFirestore.getInstance()
+    // NEW STATES FOR TOASTS
+    var showSuccessToast by remember { mutableStateOf(false) }
+    var showCancelledToast by remember { mutableStateOf(false) }
+    var showFailedToast by remember { mutableStateOf(false) }
 
     var subscriptionPlans by remember { mutableStateOf<List<SubscriptionPlan>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -2143,6 +2148,64 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
 
     val emeraldGreen = Color(0xFF2ECC71)
     val goldColor = Color(0xFFFFD700)
+
+    // ✅ eSewa Payment Launcher
+    // In your UserSubscriptionContent function...
+
+
+
+    val esewaPaymentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        when (result.resultCode) {
+            Activity.RESULT_OK -> {
+                // eSewa returned a success JSON
+                val paymentResponse = result.data?.getStringExtra("PAYMENT_RESULT")
+
+                // Logic: You should parse this JSON and call your Firebase to update subscription
+                Log.d("ESewa_Result", "Success JSON: $paymentResponse")
+
+                // FIX: Use Custom Toast State instead of default Toast
+                showSuccessToast = true
+
+                // TODO: Call a function here to update Firebase 'subscriptions' collection
+            }
+            Activity.RESULT_CANCELED -> {
+                // FIX: Use Custom Toast State instead of default Toast
+                showCancelledToast = true
+            }
+            else -> {
+                // FIX: Use Custom Toast State instead of default Toast
+                showFailedToast = true
+            }
+        }
+    }
+
+    CustomToastCompose(
+        message = "Payment Successful! Updating account...",
+        showToast = showSuccessToast,
+        onDismiss = { showSuccessToast = false }
+    )
+    CustomToastCompose(
+        message = "Payment Cancelled",
+        showToast = showCancelledToast,
+        onDismiss = { showCancelledToast = false }
+    )
+    CustomToastCompose(
+        message = "Payment Failed",
+        showToast = showFailedToast,
+        onDismiss = { showFailedToast = false }
+    )
+    // Function to launch eSewa payment
+    fun launchEsewaPayment(plan: SubscriptionPlan) {
+        val intent = Intent(context, ESewaPaymentHandler::class.java).apply {
+            putExtra("PLAN_ID", plan.id)
+            putExtra("PLAN_NAME", plan.name)
+            putExtra("PLAN_PRICE", plan.price.toDouble())
+            putExtra("PLAN_DURATION", plan.duration)
+        }
+        esewaPaymentLauncher.launch(intent)
+    }
 
     // Fetch subscription plans and check active subscription
     LaunchedEffect(Unit) {
@@ -2319,7 +2382,7 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
                             ) {
                                 Icon(
                                     Icons.Default.CheckCircle,
-                                    contentDescription = null,
+                                    contentDescription = "Active",
                                     tint = emeraldGreen,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -2444,7 +2507,12 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
                 SubscriptionPlanCard(
                     plan = subscriptionPlans[index],
                     isActive = subscriptionPlans[index].name == activeSubscription,
-                    onClick = {
+                    onEsewaClick = {
+                        // TODO: Handle eSewa payment
+                        launchEsewaPayment(subscriptionPlans[index])
+                    },
+                    onKhaltiClick = {
+                        // TODO: Handle Khalti payment
                         android.widget.Toast.makeText(
                             context,
                             "Contact admin to purchase ${subscriptionPlans[index].name}",
@@ -2462,7 +2530,8 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
 fun SubscriptionPlanCard(
     plan: SubscriptionPlan,
     isActive: Boolean,
-    onClick: () -> Unit,
+    onEsewaClick: () -> Unit,
+    onKhaltiClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val emeraldGreen = Color(0xFF2ECC71)
@@ -2652,7 +2721,7 @@ fun SubscriptionPlanCard(
                     ) {
                         // e-Sewa Button
                         Button(
-                            onClick = onClick,
+                            onClick = onEsewaClick,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(44.dp),
@@ -2687,7 +2756,7 @@ fun SubscriptionPlanCard(
 
                         // Khalti Button
                         Button(
-                            onClick = onClick,
+                            onClick = onKhaltiClick,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(44.dp),
@@ -2841,7 +2910,7 @@ fun MovieDetailScreen(
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val context = LocalContext.current
 
-
+    var showPlayOptionsDialog by remember { mutableStateOf(false) }
     var isFavorite by remember { mutableStateOf(false) }
     var isCheckingFavorite by remember { mutableStateOf(true) }
 
@@ -3190,9 +3259,8 @@ fun MovieDetailScreen(
                     // Play Button
                     Button(
                         onClick = {
-                            // ✅ Track watch for collaborative filtering
-                            viewModel.trackMovieWatch(movie.docId, movie.title)
-                            onPlayClick(movie)
+                            // Show play options dialog
+                            showPlayOptionsDialog = true
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -3370,12 +3438,330 @@ fun MovieDetailScreen(
                 )
             }
         }
+
+        // ✅ Play Options Dialog
+        if (showPlayOptionsDialog) {
+            AlertDialog(
+                onDismissRequest = { showPlayOptionsDialog = false },
+                containerColor = Color(0xFF1a1a2e),
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Text(
+                        "Choose Player",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Play Movie Option (WebView)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showPlayOptionsDialog = false
+                                    viewModel.trackMovieWatch(movie.docId, movie.title)
+                                    onPlayClick(movie)
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White.copy(0.1f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.PlayCircle,
+                                    contentDescription = null,
+                                    tint = emeraldGreen,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    "Play Movie",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Play Exo Option (ExoPlayer)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    showPlayOptionsDialog = false
+                                    viewModel.trackMovieWatch(movie.docId, movie.title)
+                                    // Signal to play with ExoPlayer
+                                    onPlayClick(movie.copy(streamUrl = "exo_player"))
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White.copy(0.1f)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Movie,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFD700),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    "Play Exo",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showPlayOptionsDialog = false }) {
+                        Text("Cancel", color = Color.White.copy(0.7f))
+                    }
+                }
+            )
+        }
     }
 }
 
 
 @Composable
 fun MoviePlayerScreen(
+    movie: com.manish.demo.viewmodel.MovieItem,
+    onClose: () -> Unit
+) {
+    // Check if we should use ExoPlayer
+    if (movie.streamUrl == "exo_player") {
+        ExoPlayerScreen(onClose = onClose)
+    } else {
+        WebViewPlayerScreen(movie = movie, onClose = onClose)
+    }
+}
+
+@Composable
+fun ExoPlayerScreen(onClose: () -> Unit) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Manage orientation & immersive mode
+    DisposableEffect(Unit) {
+        val window = activity?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+        }
+
+        onDispose {
+            val window = activity?.window
+            if (window != null) {
+                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // VideoView Player
+        AndroidView(
+            factory = { ctx ->
+                val playerView = android.widget.VideoView(ctx)
+
+                try {
+                    // Load from assets folder (supports larger files)
+                    var videoLoaded = false
+                    try {
+                        // Check if file exists and get its size
+                        val afd = ctx.assets.openFd("my_movie.mp4")
+                        val fileSize = afd.length
+                        val fileSizeMB = fileSize / (1024 * 1024)
+                        afd.close()
+
+                        Log.d("ExoPlayer", "Video file size: $fileSizeMB MB")
+
+                        // Try to load the local video
+                        playerView.setVideoURI(
+                            Uri.parse("file:///android_asset/my_movie.mp4")
+                        )
+                        videoLoaded = true
+                    } catch (e: Exception) {
+                        Log.e("ExoPlayer", "Asset file not found or error, using sample video", e)
+                        videoLoaded = false
+                    }
+
+                    // If local video failed or doesn't exist, use a working sample video
+                    if (!videoLoaded) {
+                        // This is a known-good H.264 MP4 video (~64MB, 720p)
+                        val sampleVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+                        playerView.setVideoURI(Uri.parse(sampleVideoUrl))
+                        Log.d("ExoPlayer", "Using sample video from URL")
+                    }
+
+                    playerView.setOnPreparedListener { mp ->
+                        isLoading = false
+                        mp.isLooping = false
+                        mp.start()
+                        Log.d("ExoPlayer", "Video prepared and playing")
+                    }
+
+                    playerView.setOnErrorListener { _, what, extra ->
+                        isLoading = false
+                        showError = true
+                        Log.e("ExoPlayer", "Error playing video - What: $what, Extra: $extra")
+
+                        errorMessage = when {
+                            what == 1 && extra == -1004 -> "Video file may be corrupted or wrong codec.\n\nTry converting to MP4 with H.264 codec\n\nOr download a sample video:\nhttps://sample-videos.com"
+                            what == 1 -> "Cannot play this video format.\n\nRequired:\n• Format: MP4\n• Video: H.264\n• Audio: AAC\n\nConvert your video or use online converter:\nwww.videosmaller.com"
+                            extra == -1004 -> "Video file may be corrupted.\n\nTry re-downloading or converting the file"
+                            extra == -110 -> "Video codec not supported.\n\nUse H.264 video codec and AAC audio\n\nRecommended tool: HandBrake (free)"
+                            else -> "Cannot play this video.\n\nError code: $what, Extra: $extra\n\nTry using:\n• MP4 format\n• H.264 video codec\n• AAC audio codec"
+                        }
+                        true
+                    }
+
+                    playerView.setOnCompletionListener {
+                        Log.d("ExoPlayer", "Video completed")
+                    }
+                } catch (e: Exception) {
+                    isLoading = false
+                    showError = true
+                    errorMessage = "Error loading video.\n\n${e.message}\n\nUsing fallback sample video..."
+                    Log.e("ExoPlayer", "Error loading video", e)
+
+                    // Last resort: Try sample video
+                    try {
+                        val sampleVideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+                        playerView.setVideoURI(Uri.parse(sampleVideoUrl))
+                    } catch (ex: Exception) {
+                        Log.e("ExoPlayer", "Fallback also failed", ex)
+                    }
+                }
+
+                playerView
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Loading Indicator
+        if (isLoading && !showError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF2ECC71),
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "Loading video...",
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+
+        // Error Message
+        if (showError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(0.95f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Movie,
+                        contentDescription = null,
+                        tint = Color.Red,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "Cannot Play Video",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        errorMessage,
+                        color = Color.White.copy(0.8f),
+                        fontSize = 13.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = onClose,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2ECC71)
+                        ),
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Close", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // Close Button (Always visible)
+        if (!showError) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(24.dp)
+                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+            ) {
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+            }
+        }
+    }
+}
+
+
+
+@Composable
+fun WebViewPlayerScreen(
     movie: com.manish.demo.viewmodel.MovieItem,
     onClose: () -> Unit
 ) {
@@ -3630,7 +4016,7 @@ fun MoviePlayerScreen(
                 onClick = onClose,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(24.dp) // Added more padding for easier clicking in landscape
+                    .padding(24.dp)
                     .background(Color.Black.copy(alpha = 0.5f), CircleShape)
             ) {
                 Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
