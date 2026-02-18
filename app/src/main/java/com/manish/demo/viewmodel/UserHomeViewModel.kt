@@ -148,6 +148,7 @@ class UserHomeViewModel : ViewModel() {
                 // Fetch subscription status
                 db.collection("subscriptions")
                     .whereEqualTo("userId", currentUserId)
+                    .whereEqualTo("status", "active")  // ✅ Only get active subscriptions
                     .addSnapshotListener { snapshot, error ->
                         if (error != null) {
                             Log.e("UserHomeVM", "Error fetching subscription: ${error.message}")
@@ -155,7 +156,7 @@ class UserHomeViewModel : ViewModel() {
                         }
 
                         val activeSub = snapshot?.documents?.firstOrNull { doc ->
-                            val expiryDate = doc.getTimestamp("expiryDate")?.toDate()
+                            val expiryDate = doc.getTimestamp("endDate")?.toDate()  // ✅ Changed from "expiryDate" to "endDate"
                             expiryDate != null && expiryDate.after(Date())
                         }
 
