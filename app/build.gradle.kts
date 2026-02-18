@@ -65,15 +65,15 @@ dependencies {
         implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
         // Networking
-        implementation ("com.squareup.retrofit2:retrofit:2.9.0")
-        implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
+        implementation("com.squareup.retrofit2:retrofit:2.9.0")
+        implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
         // Image Loading (For Posters)
-        implementation ("io.coil-kt:coil-compose:2.4.0") // If using Compose
+        implementation("io.coil-kt:coil-compose:2.4.0") // If using Compose
         // OR implementation "io.coil-kt:coil:2.4.0" // If using XML
 
         // Coroutines for background tasks
-        implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     }
     // ✅ Firebase BOM (Bill of Materials) - manages compatible versions
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))  // Updated

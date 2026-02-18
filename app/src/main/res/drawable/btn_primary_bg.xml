@@ -3,8 +3,8 @@
     android:color="#FF8A80"> <!-- Light Red Ripple when clicked -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#E50914"/> <!-- Netflix Red -->
-            <corners android:radius="4dp"/> <!-- Professional slight rounding -->
+            <solid android:color="#E50914" /> <!-- Netflix Red -->
+            <corners android:radius="4dp" /> <!-- Professional slight rounding -->
         </shape>
     </item>
 </ripple>

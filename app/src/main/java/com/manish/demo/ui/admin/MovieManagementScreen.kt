@@ -1,86 +1,80 @@
 package com.manish.demo.ui.admin
 
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.ui.platform.LocalConfiguration
 
-
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.Placeable
-import androidx.compose.ui.zIndex
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicTextField
-
-import androidx.compose.material.icons.filled.*
-
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
-
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import coil.compose.AsyncImage
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.spring
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-
-import androidx.compose.ui.text.style.TextOverflow
-
-import androidx.compose.ui.window.DialogProperties
-
-import androidx.compose.animation.core.Spring
-
-import androidx.compose.foundation.layout.WindowInsets
-
-import androidx.compose.foundation.Image
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.draw.shadow
-
-import androidx.compose.foundation.BorderStroke
-
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.manish.demo.R
 import com.manish.demo.models.remote.TmdbMovieDto
@@ -116,15 +110,16 @@ fun MoviesManagementScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                        windowInsets = WindowInsets(0)
+                windowInsets = WindowInsets(0)
             )
         },
         containerColor = Color.Transparent
     ) { innerPadding ->
 
-        Column(modifier = modifier
-            .fillMaxSize()
-            .padding(innerPadding)
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
             // --- SUB-TABS ---
             TabRow(
@@ -149,9 +144,10 @@ fun MoviesManagementScreen(
             }
 
             // --- CONTENT ---
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
             ) {
                 if (selectedSubTab == 0) {
                     AddMovieTabContent(viewModel)
@@ -209,7 +205,11 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                 viewModel.searchMovies("")
                             }
                         ) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Clear", tint = Color.White)
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = Color.White
+                            )
                         }
                     }
                 },
@@ -259,7 +259,11 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+                            .border(
+                                1.dp,
+                                Color.White.copy(alpha = 0.6f),
+                                RoundedCornerShape(16.dp)
+                            ),
                         colors = CardDefaults.cardColors(containerColor = strongCardBg),
                         shape = RoundedCornerShape(16.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -272,12 +276,25 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                 AsyncImage(
                                     model = movie.fullPosterUrl,
                                     contentDescription = null,
-                                    modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)),
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
                                     contentScale = ContentScale.Crop
                                 )
-                                Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
-                                    Text(movie.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    Text("Rating: ⭐ ${movie.rating}", color = Color.Yellow, fontSize = 11.sp)
+                                Column(modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .weight(1f)) {
+                                    Text(
+                                        movie.title,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    )
+                                    Text(
+                                        "Rating: ⭐ ${movie.rating}",
+                                        color = Color.Yellow,
+                                        fontSize = 11.sp
+                                    )
                                 }
                             }
 
@@ -285,24 +302,58 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                             Text("Auto-Source Status:", color = Color.White, fontSize = 11.sp)
 
                             Surface(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .border(
+                                        1.dp,
+                                        Color.White.copy(alpha = 0.3f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
                                 color = Color.Black.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Verified, null, tint = emeraldGreen, modifier = Modifier.size(16.dp))
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Verified,
+                                        null,
+                                        tint = emeraldGreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Aggregator Source Configured", color = Color.White, fontSize = 13.sp)
+                                    Text(
+                                        "Aggregator Source Configured",
+                                        color = Color.White,
+                                        fontSize = 13.sp
+                                    )
                                 }
                             }
 
                             if (details != null) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text("Genres:", color = Color.White, fontSize = 11.sp)
-                                LazyRow(modifier = Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                LazyRow(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     items(details?.genres ?: emptyList()) { genre ->
-                                        Surface(color = emeraldGreen, shape = RoundedCornerShape(6.dp)) {
-                                            Text(genre.name, color = Color.White, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Surface(
+                                            color = emeraldGreen,
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                genre.name,
+                                                color = Color.White,
+                                                modifier = Modifier.padding(
+                                                    horizontal = 10.dp,
+                                                    vertical = 4.dp
+                                                ),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         }
                                     }
                                 }
@@ -317,7 +368,11 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                     val generatedUrl = "https://vidsrc.to/embed/movie/${movie.id}"
                                     val genreNames = details?.genres?.map { it.name } ?: emptyList()
 
-                                    viewModel.uploadMovie(movie, generatedUrl, genreNames) { success, message ->
+                                    viewModel.uploadMovie(
+                                        movie,
+                                        generatedUrl,
+                                        genreNames
+                                    ) { success, message ->
                                         // This runs when Firebase/API finishes (Success OR Failure)
                                         isActionLoading = false
                                         toastMsg = message
@@ -333,7 +388,11 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
                                     .height(52.dp)
-                                    .shadow(elevation = 12.dp, shape = RoundedCornerShape(12.dp), spotColor = emeraldGreen),
+                                    .shadow(
+                                        elevation = 12.dp,
+                                        shape = RoundedCornerShape(12.dp),
+                                        spotColor = emeraldGreen
+                                    ),
                                 enabled = details != null && !isActionLoading && !isAlreadyUploaded,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = emeraldGreen,
@@ -351,14 +410,21 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                             }
 
                             if (isAlreadyUploaded) {
-                                Text("This movie is already in your library", color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+                                Text(
+                                    "This movie is already in your library",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
                             }
                         }
                     }
 
                     IconButton(
                         onClick = { selectedMovie = null },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
                     ) {
                         Icon(Icons.Default.Close, "Cancel", tint = Color.White.copy(alpha = 0.5f))
                     }
@@ -382,7 +448,11 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = emeraldGreen)
                     Spacer(Modifier.height(16.dp))
-                    Text("Uploading movie to database...", color = Color.White, fontWeight = FontWeight.Medium)
+                    Text(
+                        "Uploading movie to database...",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
@@ -403,15 +473,27 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
         title.contains(query) || genre.contains(query)
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Transparent)) {
         // --- SEARCH BAR (Keep your existing code here) ---
         Surface(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             shape = RoundedCornerShape(12.dp),
             color = Color.White.copy(alpha = 0.08f)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
-                Icon(Icons.Default.Search, null, tint = Color(0xFF2ECC71), modifier = Modifier.size(20.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    null,
+                    tint = Color(0xFF2ECC71),
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 BasicTextField(
                     value = searchQuery,
@@ -420,8 +502,16 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
                     modifier = Modifier.weight(1f),
                     cursorBrush = SolidColor(Color(0xFF2ECC71)),
                     decorationBox = { inner ->
-                        Box(modifier = Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.CenterStart) {
-                            if (searchQuery.isEmpty()) Text("Search...", color = Color.White.copy(0.5f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (searchQuery.isEmpty()) Text(
+                                "Search...",
+                                color = Color.White.copy(0.5f)
+                            )
                             inner()
                         }
                     }
@@ -430,7 +520,10 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
         }
 
         // --- MOVIE LIST ---
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(16.dp)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(16.dp)
+        ) {
             items(items = filteredMovies, key = { it["docId"].toString() }) { movie ->
                 TransparentMovieCard(
                     movie = movie,
@@ -448,7 +541,12 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Delete Movie", color = Color.White) },
-            text = { Text("Are you sure you want to delete \"${movieToDelete!!["title"]}\"?", color = Color.White.copy(0.7f)) },
+            text = {
+                Text(
+                    "Are you sure you want to delete \"${movieToDelete!!["title"]}\"?",
+                    color = Color.White.copy(0.7f)
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -464,7 +562,12 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
                 ) { Text("Delete", color = Color.Red) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel", color = Color.Gray) }
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(
+                        "Cancel",
+                        color = Color.Gray
+                    )
+                }
             },
             containerColor = Color(0xFF1A1C1E)
         )

@@ -129,7 +129,12 @@ class AdminViewModel : ViewModel() {
     }
 
     // --- USER ACTIONS ---
-    fun toggleAdminStatus(userId: String, userName: String, isCurrentlyAdmin: Boolean, onComplete: (String) -> Unit) {
+    fun toggleAdminStatus(
+        userId: String,
+        userName: String,
+        isCurrentlyAdmin: Boolean,
+        onComplete: (String) -> Unit
+    ) {
         val newRole = if (isCurrentlyAdmin) "USER" else "ADMIN"
         db.collection("users").document(userId)
             .update("role", newRole)
@@ -140,7 +145,12 @@ class AdminViewModel : ViewModel() {
             }
     }
 
-    fun toggleBanStatus(userId: String, userName: String, isCurrentlyBanned: Boolean, onComplete: (String) -> Unit) {
+    fun toggleBanStatus(
+        userId: String,
+        userName: String,
+        isCurrentlyBanned: Boolean,
+        onComplete: (String) -> Unit
+    ) {
         val newStatus = !isCurrentlyBanned
         db.collection("users").document(userId)
             .update("isBanned", newStatus)
@@ -153,12 +163,16 @@ class AdminViewModel : ViewModel() {
 
     // --- SEARCH & DATA FETCH ---
     fun searchMovies(query: String) {
-        if (query.isEmpty()) { _searchResults.value = emptyList(); return }
+        if (query.isEmpty()) {
+            _searchResults.value = emptyList(); return
+        }
         viewModelScope.launch {
             try {
                 val response = RetrofitClient.instance.searchMovies(API_KEY, query)
                 _searchResults.value = response.results
-            } catch (e: Exception) { Log.e("AdminVM", "Search Error: ${e.message}") }
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Search Error: ${e.message}")
+            }
         }
     }
 
@@ -186,6 +200,7 @@ class AdminViewModel : ViewModel() {
             }
         }
     }
+
     // Inside AdminViewModel class
     fun logPasswordChange() {
         logActivity("Your Password was changed successfully", "security")

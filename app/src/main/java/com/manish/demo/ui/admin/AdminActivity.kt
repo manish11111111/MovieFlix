@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.manish.demo.viewmodel.AdminViewModel
-import com.manish.demo.ui.admin.MoviesManagementScreen
 
 
 class AdminActivity : ComponentActivity() {

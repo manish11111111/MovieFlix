@@ -1,9 +1,9 @@
 package com.manish.demo.entities
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
-import androidx.room.ColumnInfo
 
 // 1. MAIN USER TABLE (Auth)
 @Entity(tableName = "users")
@@ -53,8 +53,16 @@ data class SubscriptionPlanEntity(
 @Entity(
     tableName = "user_subscriptions",
     foreignKeys = [
-        ForeignKey(entity = UserEntity::class, parentColumns = ["userId"], childColumns = ["userId"]),
-        ForeignKey(entity = SubscriptionPlanEntity::class, parentColumns = ["planId"], childColumns = ["planId"])
+        ForeignKey(
+            entity = UserEntity::class,
+            parentColumns = ["userId"],
+            childColumns = ["userId"]
+        ),
+        ForeignKey(
+            entity = SubscriptionPlanEntity::class,
+            parentColumns = ["planId"],
+            childColumns = ["planId"]
+        )
     ]
 )
 data class UserSubscriptionEntity(

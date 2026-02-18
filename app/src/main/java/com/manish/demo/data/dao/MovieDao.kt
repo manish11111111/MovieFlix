@@ -64,11 +64,13 @@ interface MovieDao {
     @Insert(onConflict = OnConflictStrategy.Companion.REPLACE)
     suspend fun addGenreToMovie(ref: MovieGenreCrossRef)
 
-    @Query("""
+    @Query(
+        """
         SELECT g.* FROM genres g
         INNER JOIN movie_genres mg ON g.genreId = mg.genreId
         WHERE mg.movieId = :movieId
-    """)
+    """
+    )
     suspend fun getGenresForMovie(movieId: Long): List<GenreEntity>
 
 
@@ -79,10 +81,12 @@ interface MovieDao {
     @Insert(onConflict = OnConflictStrategy.Companion.REPLACE)
     suspend fun addLanguageToMovie(ref: MovieLanguageCrossRef)
 
-    @Query("""
+    @Query(
+        """
         SELECT l.* FROM languages l
         INNER JOIN movie_languages ml ON l.languageId = ml.languageId
         WHERE ml.movieId = :movieId
-    """)
+    """
+    )
     suspend fun getLanguagesForMovie(movieId: Long): List<LanguageEntity>
 }

@@ -1,30 +1,90 @@
 package com.manish.demo.screens.admin
-import com.google.firebase.firestore.SetOptions
+
 import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MovieCreation
+import androidx.compose.material.icons.filled.MovieFilter
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Theaters
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,12 +93,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.google.firebase.Timestamp
 import com.google.firebase.Firebase
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.firestore
 import com.manish.demo.models.Genre
 import com.manish.demo.models.Movie
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -56,7 +116,7 @@ fun String.toColor(): Color {
 @OptIn(ExperimentalAnimationApi::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun MoviesManagementScreen(modifier: Modifier = Modifier ) {
+fun MoviesManagementScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -159,7 +219,11 @@ fun MoviesManagementScreen(modifier: Modifier = Modifier ) {
                                         scope.launch {
                                             deleteMovie(movieId)
                                             handleRefresh()
-                                            Toast.makeText(context, "Movie deleted", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                "Movie deleted",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     }
                                 )
@@ -182,7 +246,11 @@ fun MoviesManagementScreen(modifier: Modifier = Modifier ) {
                                         scope.launch {
                                             deleteGenre(genreId)
                                             handleRefresh()
-                                            Toast.makeText(context, "Genre deleted", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                "Genre deleted",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     }
                                 )
@@ -398,7 +466,9 @@ fun StunningMovieCard(
         shape = RoundedCornerShape(24.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -418,11 +488,18 @@ fun StunningMovieCard(
                     modifier = Modifier.fillMaxSize()
                 )
                 if (movie.isPremium) {
-                    Box(modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .background(Color(0xFFFFD700), RoundedCornerShape(bottomEnd = 12.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)) {
-                        Text("PRO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .background(Color(0xFFFFD700), RoundedCornerShape(bottomEnd = 12.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            "PRO",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
                     }
                 }
             }
@@ -430,7 +507,11 @@ fun StunningMovieCard(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
                         movie.title,
                         color = Color.White,
@@ -452,7 +533,13 @@ fun StunningMovieCard(
                             DropdownMenuItem(
                                 text = { Text("Edit", color = Color.White) },
                                 onClick = { showMenu = false; onEdit() },
-                                leadingIcon = { Icon(Icons.Default.Edit, null, tint = Color(0xFF00D4FF)) }
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        null,
+                                        tint = Color(0xFF00D4FF)
+                                    )
+                                }
                             )
                             DropdownMenuItem(
                                 text = { Text("Delete", color = Color.Red) },
@@ -546,10 +633,18 @@ fun GenreCard(
                 .clickable { showDelete = true }
                 .padding(16.dp)
         ) {
-            Column(verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxSize()) {
+            Column(
+                verticalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxSize()
+            ) {
                 Icon(Icons.Default.MovieFilter, null, tint = genre.color.toColor())
                 Column {
-                    Text(genre.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        genre.name,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
                     // ✅ Use the passed 'movieCount' here
                     Text("$movieCount titles", color = Color.White.copy(0.6f), fontSize = 12.sp)
                 }
@@ -594,7 +689,8 @@ fun PremiumAddMovieDialog(
     var releaseYear by remember { mutableStateOf(movie?.releaseYear?.toString() ?: "2024") }
     var isPremium by remember { mutableStateOf(movie?.isPremium ?: false) }
 
-    val initialSelectedGenres = remember { movie?.genreIds?.toMutableStateList() ?: mutableStateListOf() }
+    val initialSelectedGenres =
+        remember { movie?.genreIds?.toMutableStateList() ?: mutableStateListOf() }
 
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -621,7 +717,9 @@ fun PremiumAddMovieDialog(
             usePlatformDefaultWidth = false,
             dismissOnBackPress = false // We handle it manually
         ),
-        modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .fillMaxHeight(0.9f),
         containerColor = Color(0xFF121225),
         title = null,
         text = {
@@ -656,14 +754,14 @@ fun PremiumAddMovieDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CustomTextField(
                         value = duration,
-                        onValueChange = { if(it.all { c -> c.isDigit() }) duration = it },
+                        onValueChange = { if (it.all { c -> c.isDigit() }) duration = it },
                         label = "Min",
                         modifier = Modifier.weight(1f),
                         onFocusChange = { hasTextFieldFocus = it }
                     )
                     CustomTextField(
                         value = releaseYear,
-                        onValueChange = { if(it.all { c -> c.isDigit() }) releaseYear = it },
+                        onValueChange = { if (it.all { c -> c.isDigit() }) releaseYear = it },
                         label = "Year",
                         modifier = Modifier.weight(1f),
                         onFocusChange = { hasTextFieldFocus = it }
@@ -721,13 +819,19 @@ fun PremiumAddMovieDialog(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().background(Color(0x10FFFFFF), RoundedCornerShape(12.dp)).padding(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0x10FFFFFF), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
                 ) {
                     Text("Premium Content", color = Color.White, modifier = Modifier.weight(1f))
                     Switch(
                         checked = isPremium,
                         onCheckedChange = { isPremium = it },
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFFD700), checkedTrackColor = Color(0x80FFD700))
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFFFFD700),
+                            checkedTrackColor = Color(0x80FFD700)
+                        )
                     )
                 }
             }
@@ -758,12 +862,20 @@ fun PremiumAddMovieDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00D4FF)),
                 enabled = !isLoading
             ) {
-                if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                if (isLoading) CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
                 else Text("SAVE MOVIE")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isLoading) { Text("CANCEL", color = Color.White.copy(0.7f)) }
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
+                Text(
+                    "CANCEL",
+                    color = Color.White.copy(0.7f)
+                )
+            }
         }
     )
 }
@@ -807,7 +919,20 @@ fun PremiumAddGenreDialog(onDismiss: () -> Unit, onSave: () -> Unit) {
     var name by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val autoColors = listOf("#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", "#00BCD4", "#009688", "#4CAF50", "#FFC107", "#FF9800", "#FF5722")
+    val autoColors = listOf(
+        "#F44336",
+        "#E91E63",
+        "#9C27B0",
+        "#673AB7",
+        "#3F51B5",
+        "#2196F3",
+        "#00BCD4",
+        "#009688",
+        "#4CAF50",
+        "#FFC107",
+        "#FF9800",
+        "#FF5722"
+    )
 
     // REMOVED: val focusManager...
     // REMOVED: var hasTextFieldFocus...
@@ -903,7 +1028,10 @@ fun GlassMorphicTabBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
             onClick = { onTabSelected(0) },
             modifier = Modifier.weight(1f)
         )
-        Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color(0x20FFFFFF)))
+        Box(modifier = Modifier
+            .width(1.dp)
+            .fillMaxHeight()
+            .background(Color(0x20FFFFFF)))
 
         TabButton(
             text = "Genres",
@@ -932,28 +1060,51 @@ fun TabButton(
             .background(if (selected) color.copy(0.2f) else Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(icon, null, tint = if (selected) color else Color.Gray)
-            Text(text, color = if (selected) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+            Text(
+                text,
+                color = if (selected) Color.White else Color.Gray,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
 
 @Composable
-fun CosmicEmptyState(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, actionText: String, onAction: () -> Unit) {
+fun CosmicEmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    actionText: String,
+    onAction: () -> Unit
+) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
-            modifier = Modifier.size(100.dp).background(Color(0x10FFFFFF), CircleShape),
+            modifier = Modifier
+                .size(100.dp)
+                .background(Color(0x10FFFFFF), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, null, tint = Color.White.copy(0.5f), modifier = Modifier.size(40.dp))
         }
         Spacer(modifier = Modifier.height(24.dp))
-        Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(
+            title,
+            color = Color.White,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Text(description, color = Color.Gray, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(32.dp))
@@ -1026,10 +1177,12 @@ suspend fun deleteMovie(id: String) = withContext(Dispatchers.IO) {
 }
 
 suspend fun saveGenre(name: String, desc: String, color: String) = withContext(Dispatchers.IO) {
-    Firebase.firestore.collection("genres").add(hashMapOf(
-        "name" to name, "description" to desc, "color" to color,
-        "movieCount" to 0, "createdAt" to Timestamp.now()
-    )).await()
+    Firebase.firestore.collection("genres").add(
+        hashMapOf(
+            "name" to name, "description" to desc, "color" to color,
+            "movieCount" to 0, "createdAt" to Timestamp.now()
+        )
+    ).await()
 }
 
 suspend fun deleteGenre(id: String) = withContext(Dispatchers.IO) {

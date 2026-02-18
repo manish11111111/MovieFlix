@@ -11,7 +11,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
-import android.os.*
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import android.view.LayoutInflater
@@ -33,12 +36,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.util.*
-import kotlin.compareTo
-import kotlin.div
-import kotlin.text.compareTo
-import kotlin.text.toFloat
-import kotlin.text.toInt
+import java.util.Calendar
 
 class CompleteProfileActivity : AppCompatActivity() {
 
@@ -61,31 +59,38 @@ class CompleteProfileActivity : AppCompatActivity() {
     private var tempCameraUri: Uri? = null
 
     // 1. Image Result Launchers
-    private val pickGalleryImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { processSelectedImage(it) }
-    }
+    private val pickGalleryImage =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let { processSelectedImage(it) }
+        }
 
-    private val takePhoto = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) tempCameraUri?.let { processSelectedImage(it) }
-    }
+    private val takePhoto =
+        registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) tempCameraUri?.let { processSelectedImage(it) }
+        }
 
     // 2. Permission Launchers
-    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) launchCamera()
-        else {
-            if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) showSettingsDialog("Camera")
-            else showCustomToast("Camera permission denied")
+    private val cameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) launchCamera()
+            else {
+                if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) showSettingsDialog(
+                    "Camera"
+                )
+                else showCustomToast("Camera permission denied")
+            }
         }
-    }
 
-    private val galleryPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
-        if (isGranted) pickGalleryImage.launch("image/*")
-        else {
-            if (!shouldShowRequestPermissionRationale(perm)) showSettingsDialog("Gallery/Storage")
-            else showCustomToast("Storage permission denied")
+    private val galleryPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            val perm =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
+            if (isGranted) pickGalleryImage.launch("image/*")
+            else {
+                if (!shouldShowRequestPermissionRationale(perm)) showSettingsDialog("Gallery/Storage")
+                else showCustomToast("Storage permission denied")
+            }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,7 +133,11 @@ class CompleteProfileActivity : AppCompatActivity() {
     }
 
     private fun handleCameraChoice() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             launchCamera()
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -136,7 +145,8 @@ class CompleteProfileActivity : AppCompatActivity() {
     }
 
     private fun handleGalleryChoice() {
-        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
+        val perm =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
         if (ContextCompat.checkSelfPermission(this, perm) == PackageManager.PERMISSION_GRANTED) {
             pickGalleryImage.launch("image/*")
         } else {
@@ -168,9 +178,14 @@ class CompleteProfileActivity : AppCompatActivity() {
         db.collection("users").whereEqualTo("phone", phone).get().addOnSuccessListener { docs ->
             val currentUid = auth.currentUser?.uid
             var taken = false
-            for (doc in docs) { if (doc.id != currentUid) taken = true }
-            if (taken) { tilPhone.error = "Number already in use"; isPhoneAvailable = false }
-            else { tilPhone.error = null; isPhoneAvailable = true }
+            for (doc in docs) {
+                if (doc.id != currentUid) taken = true
+            }
+            if (taken) {
+                tilPhone.error = "Number already in use"; isPhoneAvailable = false
+            } else {
+                tilPhone.error = null; isPhoneAvailable = true
+            }
         }
     }
 
@@ -326,12 +341,15 @@ class CompleteProfileActivity : AppCompatActivity() {
     private fun getAge(dob: String): Int {
         return try {
             val parts = dob.split("/")
-            val dobCal = Calendar.getInstance().apply { set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt()) }
+            val dobCal = Calendar.getInstance()
+                .apply { set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt()) }
             val today = Calendar.getInstance()
             var age = today.get(Calendar.YEAR) - dobCal.get(Calendar.YEAR)
             if (today.get(Calendar.DAY_OF_YEAR) < dobCal.get(Calendar.DAY_OF_YEAR)) age--
             age
-        } catch (e: Exception) { -1 }
+        } catch (e: Exception) {
+            -1
+        }
     }
 
     private fun uriToBase64(uri: Uri): String? {
@@ -382,7 +400,10 @@ class CompleteProfileActivity : AppCompatActivity() {
                 return null
             }
 
-            Log.d("CompleteProfile", "Bitmap decoded successfully: ${original.width}x${original.height}")
+            Log.d(
+                "CompleteProfile",
+                "Bitmap decoded successfully: ${original.width}x${original.height}"
+            )
 
             // Scale to a reasonable size (500px width)
             val targetWidth = 500
@@ -425,8 +446,10 @@ class CompleteProfileActivity : AppCompatActivity() {
 
     private fun showDatePicker() {
         val c = Calendar.getInstance()
-        DatePickerDialog(this, { _, y, m, d -> tilDob.error = null; etDob.setText("$d/${m + 1}/$y") },
-            c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+        DatePickerDialog(
+            this, { _, y, m, d -> tilDob.error = null; etDob.setText("$d/${m + 1}/$y") },
+            c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     private fun showLogoutConfirmationDialog() {
@@ -445,10 +468,11 @@ class CompleteProfileActivity : AppCompatActivity() {
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this).setView(view).create()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
-        handler.postDelayed({ if(dialog.isShowing) dialog.dismiss() }, 2000)
+        handler.postDelayed({ if (dialog.isShowing) dialog.dismiss() }, 2000)
     }
 
     private fun shakeView(v: View) {
-        ObjectAnimator.ofFloat(v, "translationX", 0f, 20f, -20f, 20f, -20f, 0f).setDuration(400).start()
+        ObjectAnimator.ofFloat(v, "translationX", 0f, 20f, -20f, 20f, -20f, 0f).setDuration(400)
+            .start()
     }
 }

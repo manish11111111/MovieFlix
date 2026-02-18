@@ -5,7 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.manish.demo.data.dao.UserDao
-import com.manish.demo.entities.*
+import com.manish.demo.entities.GenreEntity
+import com.manish.demo.entities.LanguageEntity
+import com.manish.demo.entities.MovieEntity
+import com.manish.demo.entities.MovieGenreCrossRef
+import com.manish.demo.entities.MovieLanguageCrossRef
+import com.manish.demo.entities.SubscriptionPlanEntity
+import com.manish.demo.entities.UserEntity
+import com.manish.demo.entities.UserProfileEntity
+import com.manish.demo.entities.UserSubscriptionEntity
 
 @Database(
     entities = [

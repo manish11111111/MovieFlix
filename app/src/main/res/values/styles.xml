@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Customize your theme here -->
 
@@ -10,6 +11,7 @@
         <item name="colorControlActivated">#D500F9</item> <!-- Focused border color -->
         <item name="colorControlHighlight">#D500F9</item>
     </style>
+
     <style name="CustomOutlinedBox" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
         <item name="boxStrokeColor">@color/box_stroke_color</item>
         <item name="hintTextColor">#D500F9</item>

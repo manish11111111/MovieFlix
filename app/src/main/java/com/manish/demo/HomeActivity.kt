@@ -22,10 +22,12 @@ class HomeActivity : AppCompatActivity() {
                     loadFragment(HomeFragment())
                     true
                 }
+
                 R.id.nav_profile -> {
                     loadFragment(ProfileFragment())
                     true
                 }
+
                 else -> false
             }
         }

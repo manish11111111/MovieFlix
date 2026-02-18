@@ -2,14 +2,10 @@ package com.manish.demo
 
 import android.animation.ObjectAnimator
 import android.app.Dialog
-import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -19,7 +15,6 @@ import android.view.Window
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -27,10 +22,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Source
-import com.google.firebase.firestore.DocumentSnapshot
 
 class LoginActivity : AppCompatActivity() {
 
@@ -105,8 +97,12 @@ class LoginActivity : AppCompatActivity() {
         tilEmail?.error = null
         tilPassword?.error = null
 
-        if (email.isEmpty()) { tilEmail?.error = "Required"; return }
-        if (password.isEmpty()) { tilPassword?.error = "Required"; return }
+        if (email.isEmpty()) {
+            tilEmail?.error = "Required"; return
+        }
+        if (password.isEmpty()) {
+            tilPassword?.error = "Required"; return
+        }
 
         setLoginLoading(true)
         auth.signInWithEmailAndPassword(email, password)
@@ -146,8 +142,10 @@ class LoginActivity : AppCompatActivity() {
         val etSheetEmail = view.findViewById<TextInputEditText>(R.id.etSheetEmail)
         val tilSheetPassword = view.findViewById<TextInputLayout>(R.id.tilSheetPassword)
         val etSheetPassword = view.findViewById<TextInputEditText>(R.id.etSheetPassword)
-        val tilSheetConfirmPassword = view.findViewById<TextInputLayout>(R.id.tilSheetConfirmPassword)
-        val etSheetConfirmPassword = view.findViewById<TextInputEditText>(R.id.etSheetConfirmPassword)
+        val tilSheetConfirmPassword =
+            view.findViewById<TextInputLayout>(R.id.tilSheetConfirmPassword)
+        val etSheetConfirmPassword =
+            view.findViewById<TextInputEditText>(R.id.etSheetConfirmPassword)
 
         // --- APPLY ROUNDED CORNERS USING setBoxCornerRadii() ---
         val cornerRadius = 15f // 15dp corner radius
@@ -155,7 +153,12 @@ class LoginActivity : AppCompatActivity() {
         // Apply to all three fields
         tilSheetEmail.setBoxCornerRadii(cornerRadius, cornerRadius, cornerRadius, cornerRadius)
         tilSheetPassword.setBoxCornerRadii(cornerRadius, cornerRadius, cornerRadius, cornerRadius)
-        tilSheetConfirmPassword.setBoxCornerRadii(cornerRadius, cornerRadius, cornerRadius, cornerRadius)
+        tilSheetConfirmPassword.setBoxCornerRadii(
+            cornerRadius,
+            cornerRadius,
+            cornerRadius,
+            cornerRadius
+        )
 
         // --- STYLING ---
         val blackColor = ColorStateList.valueOf(Color.BLACK)
@@ -167,7 +170,11 @@ class LoginActivity : AppCompatActivity() {
             it.setStartIconTintList(blackColor) // Make icons black for white background
             it.setEndIconTintList(blackColor)
         }
-        listOf(etSheetEmail, etSheetPassword, etSheetConfirmPassword).forEach { it.setTextColor(Color.BLACK) }
+        listOf(etSheetEmail, etSheetPassword, etSheetConfirmPassword).forEach {
+            it.setTextColor(
+                Color.BLACK
+            )
+        }
 
         fun setSignupLoading(isLoading: Boolean) {
             signUpProgressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
@@ -221,21 +228,25 @@ class LoginActivity : AppCompatActivity() {
                             "isBanned" to false
                         )
 
-                        db.collection("users").document(userId).set(userMap).addOnCompleteListener { dbTask ->
-                            setSignupLoading(false)
-                            if (dbTask.isSuccessful) {
-                                auth.signOut()
-                                bottomSheetDialog.dismiss()
-                                Handler(Looper.getMainLooper()).postDelayed({
-                                    showCustomDialog(true, "Account Created Successfully!") {
-                                        this.etEmail?.setText(email)
-                                        this.etPassword?.requestFocus()
-                                    }
-                                }, 400)
-                            } else {
-                                showCustomDialog(false, "Database Error: ${dbTask.exception?.message}")
+                        db.collection("users").document(userId).set(userMap)
+                            .addOnCompleteListener { dbTask ->
+                                setSignupLoading(false)
+                                if (dbTask.isSuccessful) {
+                                    auth.signOut()
+                                    bottomSheetDialog.dismiss()
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        showCustomDialog(true, "Account Created Successfully!") {
+                                            this.etEmail?.setText(email)
+                                            this.etPassword?.requestFocus()
+                                        }
+                                    }, 400)
+                                } else {
+                                    showCustomDialog(
+                                        false,
+                                        "Database Error: ${dbTask.exception?.message}"
+                                    )
+                                }
                             }
-                        }
                     } else {
                         setSignupLoading(false) // Stop loader immediately
                         val ex = task.exception
@@ -251,20 +262,28 @@ class LoginActivity : AppCompatActivity() {
         }
         bottomSheetDialog.show()
     }
+
     private fun handleFailure(message: String) {
         progressBar?.visibility = View.GONE
         btnLogin?.visibility = View.VISIBLE
         showCustomDialog(false, message)
     }
 
-    private fun showCustomDialog(isSuccess: Boolean, message: String, action: (() -> Unit)? = null) {
+    private fun showCustomDialog(
+        isSuccess: Boolean,
+        message: String,
+        action: (() -> Unit)? = null
+    ) {
         runOnUiThread {
             if (isFinishing || isDestroyed) return@runOnUiThread
             val dialog = Dialog(this)
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
             dialog.setContentView(R.layout.dialog_custom_message)
             dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            dialog.window?.setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
 
             val tvTitle = dialog.findViewById<TextView>(R.id.tvDialogTitle)
             val tvMsg = dialog.findViewById<TextView>(R.id.tvDialogMessage)
@@ -293,13 +312,24 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun shakeView(view: View) {
-        ObjectAnimator.ofFloat(view, "translationX", 0f, 25f, -25f, 25f, -25f, 15f, -15f, 0f).apply {
-            duration = 500
-            start()
-        }
+        ObjectAnimator.ofFloat(view, "translationX", 0f, 25f, -25f, 25f, -25f, 15f, -15f, 0f)
+            .apply {
+                duration = 500
+                start()
+            }
     }
 
-    private fun navigateToMain() = startActivity(Intent(this, HomeActivity1::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
-    private fun navigateToAdmin() = startActivity(Intent(this, AdminHomeActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
-    private fun navigateToCompleteProfile() = startActivity(Intent(this, CompleteProfileActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+    private fun navigateToMain() = startActivity(Intent(this, HomeActivity1::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+    })
+
+    private fun navigateToAdmin() =
+        startActivity(Intent(this, AdminHomeActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
+
+    private fun navigateToCompleteProfile() =
+        startActivity(Intent(this, CompleteProfileActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
 }

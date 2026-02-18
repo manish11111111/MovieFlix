@@ -2,14 +2,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.manish.demo">
 
-    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+    <uses-sdk
+        android:minSdkVersion="24"
+        android:targetSdkVersion="34" />
 
     <!-- 1. PERMISSIONS -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
 
     <!-- 2. HARDWARE FEATURES (Tells Android the app can use the camera) -->
     <uses-feature
@@ -71,9 +77,13 @@
         <activity
             android:name=".LoginActivity"
             android:exported="false" />
-        <activity android:name=".GetStartedActivity"
+        <activity
+            android:name=".GetStartedActivity"
             android:exported="false" />
-        <service android:name=".MyFcmService" android:exported="false">
+
+        <service
+            android:name=".MyFcmService"
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>

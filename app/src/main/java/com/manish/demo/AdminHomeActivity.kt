@@ -1,16 +1,12 @@
 package com.manish.demo
 
-import androidx.compose.ui.text.style.TextOverflow
-import com.google.firebase.messaging.FirebaseMessaging
-import com.google.android.gms.tasks.Task
-import android.os.Build
-import android.os.Build.VERSION_CODES
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -20,17 +16,80 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.CardMembership
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockReset
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.SettingsSuggest
+import androidx.compose.material.icons.filled.Subscriptions
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +101,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -70,13 +130,8 @@ import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.text.SimpleDateFormat
-import java.util.*
-import kotlin.compareTo
-import kotlin.div
-import kotlin.or
-import kotlin.text.compareTo
-import kotlin.text.toInt
-import kotlin.times
+import java.util.Calendar
+import java.util.Locale
 
 // --- DATA MODELS & CONSTANTS ---
 data class DashboardStats(
@@ -87,7 +142,13 @@ data class DashboardStats(
     val weeklyRevenue: List<Float> = listOf(0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f),
     val recentActivities: List<DashboardActivityItem> = emptyList()
 )
-data class DashboardActivityItem(val title: String, val time: String, val icon: ImageVector, val color: Color)
+
+data class DashboardActivityItem(
+    val title: String,
+    val time: String,
+    val icon: ImageVector,
+    val color: Color
+)
 
 private val dashEmerald = Color(0xFF2ECC71)
 private val dashGlassBg = Color.White.copy(alpha = 0.05f)
@@ -172,7 +233,8 @@ class DashboardViewModel : ViewModel() {
                     val dailySum = dayTotals[dayOfYear] ?: 0f
 
                     // Normalizing bar height (0.1 to 1.0)
-                    val barHeight = if (maxRevenue > 0) (dailySum / maxRevenue).coerceAtLeast(0.1f) else 0.1f
+                    val barHeight =
+                        if (maxRevenue > 0) (dailySum / maxRevenue).coerceAtLeast(0.1f) else 0.1f
                     chartData.add(barHeight)
                 }
 
@@ -211,6 +273,7 @@ class DashboardViewModel : ViewModel() {
                 _stats.value = _stats.value.copy(recentActivities = list)
             }
     }
+
     private fun formatTime(ts: Timestamp?): String {
         if (ts == null) return "Now"
         val seconds = (System.currentTimeMillis() / 1000) - ts.seconds
@@ -234,20 +297,26 @@ class AdminHomeActivity : ComponentActivity() {
     private var showSuccessToast by mutableStateOf(false)
     private var isUploadingImage by mutableStateOf(false)
     private var hasActiveSubscription by mutableStateOf(false)
-    private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) handleImageSelection(uri)
-    }
+    private val galleryLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) handleImageSelection(uri)
+        }
 
-    private val cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) handleCameraImage(bitmap)
-    }
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+            if (bitmap != null) handleCameraImage(bitmap)
+        }
     private val requestCameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
             handleImageSourceSelection("camera_action")
         } else {
-            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.CAMERA)) {
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(
+                    this,
+                    android.Manifest.permission.CAMERA
+                )
+            ) {
                 showSettingsDialog("Camera")
             }
         }
@@ -277,10 +346,19 @@ class AdminHomeActivity : ComponentActivity() {
         listenForRoleSecurity()
         fetchAdminData()
     }
+
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 102)
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                    102
+                )
             }
         }
     }
@@ -305,30 +383,51 @@ class AdminHomeActivity : ComponentActivity() {
                         adminPhone = document.getString("phone") ?: ""
                         adminDob = document.getString("dob") ?: ""
                         val lastUpdated = document.getTimestamp("passwordLastUpdated")?.toDate()
-                        passwordLastUpdated = if (lastUpdated != null) SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault()).format(lastUpdated) else "Never"
+                        passwordLastUpdated = if (lastUpdated != null) SimpleDateFormat(
+                            "MMM d, yyyy h:mm a",
+                            Locale.getDefault()
+                        ).format(lastUpdated) else "Never"
                         val base64Image = document.getString("profileImage")
                         if (base64Image != null) {
                             try {
                                 val decodedBytes = Base64.decode(base64Image, Base64.DEFAULT)
-                                adminImageBitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-                            } catch (e: Exception) { Log.e("Admin", "Image error", e) }
+                                adminImageBitmap = BitmapFactory.decodeByteArray(
+                                    decodedBytes,
+                                    0,
+                                    decodedBytes.size
+                                )
+                            } catch (e: Exception) {
+                                Log.e("Admin", "Image error", e)
+                            }
                         }
                     }
                     isRefreshing = false
                     updateUI()
                 }
                 .addOnFailureListener { isRefreshing = false; updateUI() }
-        } else { isRefreshing = false; updateUI() }
+        } else {
+            isRefreshing = false; updateUI()
+        }
     }
 
     private fun updateUI() {
         setContent {
             DemoTheme {
                 AdminApp(
-                    adminName = adminName, adminEmail = adminEmail, adminPhone = adminPhone, adminDob = adminDob,
-                    adminImageBitmap = adminImageBitmap, passwordLastUpdated = passwordLastUpdated, isRefreshing = isRefreshing,
-                    showSuccessToast = showSuccessToast, isUploadingImage = isUploadingImage,
-                    onRefresh = { if (!isUploadingImage) { isRefreshing = true; fetchAdminData() } },
+                    adminName = adminName,
+                    adminEmail = adminEmail,
+                    adminPhone = adminPhone,
+                    adminDob = adminDob,
+                    adminImageBitmap = adminImageBitmap,
+                    passwordLastUpdated = passwordLastUpdated,
+                    isRefreshing = isRefreshing,
+                    showSuccessToast = showSuccessToast,
+                    isUploadingImage = isUploadingImage,
+                    onRefresh = {
+                        if (!isUploadingImage) {
+                            isRefreshing = true; fetchAdminData()
+                        }
+                    },
                     onHideSuccessToast = { showSuccessToast = false },
                     onImageSelected = { handleImageSourceSelection(it) }
                 )
@@ -344,22 +443,33 @@ class AdminHomeActivity : ComponentActivity() {
                 else
                     android.Manifest.permission.READ_EXTERNAL_STORAGE
 
-                if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(
+                        this,
+                        permission
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
                     galleryLauncher.launch("image/*")
                 } else {
                     requestGalleryPermissionLauncher.launch(permission)
                 }
             }
+
             "gallery_action" -> {
                 galleryLauncher.launch("image/*")
             }
+
             "camera" -> {
-                if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.CAMERA
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
                     cameraLauncher.launch(null)
                 } else {
                     requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                 }
             }
+
             "camera_action" -> {
                 cameraLauncher.launch(null)
             }
@@ -373,7 +483,8 @@ class AdminHomeActivity : ComponentActivity() {
                 .setMessage("You have permanently denied $permissionName access. Please enable it in app settings to update your profile photo.")
                 .setPositiveButton("Go to Settings") { _, _ ->
                     try {
-                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        val intent =
+                            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                         val uri = Uri.fromParts("package", packageName, null)
                         intent.data = uri
                         startActivity(intent)
@@ -472,7 +583,6 @@ class AdminHomeActivity : ComponentActivity() {
     }
 
 
-
     private fun handleCameraImage(bitmap: Bitmap) {
         isUploadingImage = true; updateUI()
         updateProfileImageInFirebase(convertBitmapToBase64(bitmap))
@@ -493,7 +603,9 @@ class AdminHomeActivity : ComponentActivity() {
         userId?.let {
             FirebaseFirestore.getInstance().collection("users").document(it)
                 .update("profileImage", base64Image)
-                .addOnSuccessListener { showSuccessToast = true; isUploadingImage = false; fetchAdminData() }
+                .addOnSuccessListener {
+                    showSuccessToast = true; isUploadingImage = false; fetchAdminData()
+                }
                 .addOnFailureListener { isUploadingImage = false; updateUI() }
         }
     }
@@ -519,14 +631,19 @@ class AdminHomeActivity : ComponentActivity() {
                 .setCancelable(false)
                 .setPositiveButton("LOGIN") { _, _ ->
                     FirebaseAuth.getInstance().signOut()
-                    startActivity(Intent(this, LoginActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+                    startActivity(Intent(this, LoginActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    })
                     finish()
                 }.show()
         }
     }
 
-    private fun checkPermission(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
-    private fun requestPermission(p: String, c: Int) = ActivityCompat.requestPermissions(this, arrayOf(p), c)
+    private fun checkPermission(p: String) =
+        ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+
+    private fun requestPermission(p: String, c: Int) =
+        ActivityCompat.requestPermissions(this, arrayOf(p), c)
 }
 
 enum class AdminDestinations(val label: String, val icon: ImageVector) {
@@ -570,7 +687,9 @@ fun AdminApp(
     BackHandler(enabled = !showExitConfirmation && !passwordDialogOpen && !showImageDialog) {
         when {
             showImageDialog -> showImageDialog = false
-            currentDestination != AdminDestinations.HOME -> currentDestination = AdminDestinations.HOME
+            currentDestination != AdminDestinations.HOME -> currentDestination =
+                AdminDestinations.HOME
+
             else -> showExitConfirmation = true
         }
     }
@@ -582,16 +701,32 @@ fun AdminApp(
         }
     }
 
-    val gradient = Brush.linearGradient(listOf(Color(0xFF450457), Color(0xFF120017), Color(0xFF000000)))
+    val gradient =
+        Brush.linearGradient(listOf(Color(0xFF450457), Color(0xFF120017), Color(0xFF000000)))
 
-    Box(modifier = Modifier.fillMaxSize().background(gradient)) {
-        CustomToastCompose(message = toastMessage, showToast = showCustomToast, onDismiss = { showCustomToast = false })
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(gradient)) {
+        CustomToastCompose(
+            message = toastMessage,
+            showToast = showCustomToast,
+            onDismiss = { showCustomToast = false })
 
         if (isUploadingImage) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.7f)).zIndex(10f), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(0.7f))
+                    .zIndex(10f),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Color.White)
-                    Text("Uploading image...", color = Color.White, modifier = Modifier.padding(top = 16.dp))
+                    Text(
+                        "Uploading image...",
+                        color = Color.White,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
                 }
             }
         }
@@ -602,7 +737,11 @@ fun AdminApp(
                     TopAppBar(
                         title = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Image(painter = painterResource(id = R.drawable.ic_logo_m), contentDescription = "Logo", modifier = Modifier.size(24.dp))
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_logo_m),
+                                    contentDescription = "Logo",
+                                    modifier = Modifier.size(24.dp)
+                                )
                                 Spacer(Modifier.width(8.dp))
                                 Text("MovieFlix", color = Color.White, fontWeight = FontWeight.Bold)
                             }
@@ -661,7 +800,11 @@ fun AdminApp(
                                         modifier = Modifier
                                             .size(26.dp)
                                             .clip(CircleShape)
-                                            .border(1.dp, if (item == currentDestination) Color.White else Color.Gray, CircleShape),
+                                            .border(
+                                                1.dp,
+                                                if (item == currentDestination) Color.White else Color.Gray,
+                                                CircleShape
+                                            ),
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
@@ -687,7 +830,9 @@ fun AdminApp(
                 state = rememberSwipeRefreshState(isRefreshing = isRefreshing),
                 onRefresh = onRefresh,
                 swipeEnabled = currentDestination != AdminDestinations.MOVIES && !isUploadingImage,
-                modifier = Modifier.fillMaxSize().padding(innerPadding)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
                 when (currentDestination) {
                     AdminDestinations.HOME -> AdminDashboardContent(
@@ -695,11 +840,30 @@ fun AdminApp(
                         stats = dashStats,
                         onNavigate = { currentDestination = it }
                     )
-                    AdminDestinations.MOVIES -> MoviesManagementScreen(viewModel = adminViewModel, modifier = Modifier.fillMaxSize())
-                    AdminDestinations.USERS -> UsersManagementScreen(viewModel = adminViewModel, modifier = Modifier.fillMaxSize())
-                    AdminDestinations.SUBSCRIPTIONS -> SubscriptionManagementScreen(viewModel = subscriptionViewModel, modifier = Modifier.fillMaxSize())
+
+                    AdminDestinations.MOVIES -> MoviesManagementScreen(
+                        viewModel = adminViewModel,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    AdminDestinations.USERS -> UsersManagementScreen(
+                        viewModel = adminViewModel,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    AdminDestinations.SUBSCRIPTIONS -> SubscriptionManagementScreen(
+                        viewModel = subscriptionViewModel,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
                     AdminDestinations.PROFILE -> AdminProfileContent(
-                        adminName, adminEmail, adminPhone, adminDob, adminImageBitmap, passwordLastUpdated, isUploadingImage,
+                        adminName,
+                        adminEmail,
+                        adminPhone,
+                        adminDob,
+                        adminImageBitmap,
+                        passwordLastUpdated,
+                        isUploadingImage,
                         onShowImageDialog = { showImageDialog = true }, // ✅ ADDED
                         onEditImageClicked = { showImageSelectionDialog = true },
                         onPasswordChangeClicked = { passwordDialogOpen = true }
@@ -749,14 +913,20 @@ fun AdminApp(
                 title = { Text("Exit App?") },
                 text = { Text("Are you sure you want to exit?") },
                 confirmButton = { Button(onClick = { activity?.finish() }) { Text("EXIT") } },
-                dismissButton = { TextButton(onClick = { showExitConfirmation = false }) { Text("CANCEL") } }
+                dismissButton = {
+                    TextButton(onClick = {
+                        showExitConfirmation = false
+                    }) { Text("CANCEL") }
+                }
             )
         }
 
         if (showImageSelectionDialog) {
             ImageSelectionDialog(
                 onDismiss = { showImageSelectionDialog = false },
-                onGallerySelected = { showImageSelectionDialog = false; onImageSelected("gallery") },
+                onGallerySelected = {
+                    showImageSelectionDialog = false; onImageSelected("gallery")
+                },
                 onCameraSelected = { showImageSelectionDialog = false; onImageSelected("camera") }
             )
         }
@@ -774,12 +944,17 @@ fun AdminApp(
 }
 
 
-
 // --- AMAZING DYNAMIC DASHBOARD ---
 @Composable
-fun AdminDashboardContent(adminName: String, stats: DashboardStats, onNavigate: (AdminDestinations) -> Unit) {
+fun AdminDashboardContent(
+    adminName: String,
+    stats: DashboardStats,
+    onNavigate: (AdminDestinations) -> Unit
+) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
@@ -793,12 +968,36 @@ fun AdminDashboardContent(adminName: String, stats: DashboardStats, onNavigate: 
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DashboardStatCard(Modifier.weight(1f), "Total Users", "${stats.totalUsers}", Icons.Default.Groups, dashEmerald)
-                    DashboardStatCard(Modifier.weight(1f), "Revenue", "₹${if(stats.totalRevenue >= 1000) "${stats.totalRevenue/1000}K" else stats.totalRevenue}", Icons.Default.AttachMoney, Color.Yellow)
+                    DashboardStatCard(
+                        Modifier.weight(1f),
+                        "Total Users",
+                        "${stats.totalUsers}",
+                        Icons.Default.Groups,
+                        dashEmerald
+                    )
+                    DashboardStatCard(
+                        Modifier.weight(1f),
+                        "Revenue",
+                        "₹${if (stats.totalRevenue >= 1000) "${stats.totalRevenue / 1000}K" else stats.totalRevenue}",
+                        Icons.Default.AttachMoney,
+                        Color.Yellow
+                    )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DashboardStatCard(Modifier.weight(1f), "Active Subs", "${stats.activeSubs}", Icons.Default.Subscriptions, Color.Cyan)
-                    DashboardStatCard(Modifier.weight(1f), "Movies", "${stats.totalMovies}", Icons.Default.Movie, Color.Magenta)
+                    DashboardStatCard(
+                        Modifier.weight(1f),
+                        "Active Subs",
+                        "${stats.activeSubs}",
+                        Icons.Default.Subscriptions,
+                        Color.Cyan
+                    )
+                    DashboardStatCard(
+                        Modifier.weight(1f),
+                        "Movies",
+                        "${stats.totalMovies}",
+                        Icons.Default.Movie,
+                        Color.Magenta
+                    )
                 }
             }
         }
@@ -811,12 +1010,36 @@ fun AdminDashboardContent(adminName: String, stats: DashboardStats, onNavigate: 
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("Weekly Revenue Trend", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        "Weekly Revenue Trend",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
                     Spacer(Modifier.height(20.dp))
-                    Row(modifier = Modifier.fillMaxWidth().height(100.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
                         stats.weeklyRevenue.forEach { h ->
                             val animatedHeight by animateFloatAsState(targetValue = h)
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight(animatedHeight).clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)).background(Brush.verticalGradient(listOf(dashEmerald, dashEmerald.copy(0.1f)))))
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(animatedHeight)
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                dashEmerald,
+                                                dashEmerald.copy(0.1f)
+                                            )
+                                        )
+                                    )
+                            )
                         }
                     }
                 }
@@ -824,21 +1047,62 @@ fun AdminDashboardContent(adminName: String, stats: DashboardStats, onNavigate: 
         }
 
         item {
-            Text("Management Hub", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(
+                "Management Hub",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
             Spacer(Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                DashboardActionIcon("Users", Icons.Default.People, dashEmerald) { onNavigate(AdminDestinations.USERS) }
-                DashboardActionIcon("Movies", Icons.Default.VideoLibrary, Color.Cyan) { onNavigate(AdminDestinations.MOVIES) }
-                DashboardActionIcon("Subs", Icons.Default.CardMembership, Color.Yellow) { onNavigate(AdminDestinations.SUBSCRIPTIONS) }
-                DashboardActionIcon("Profile", Icons.Default.AccountCircle, Color.White) { onNavigate(AdminDestinations.PROFILE) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                DashboardActionIcon("Users", Icons.Default.People, dashEmerald) {
+                    onNavigate(
+                        AdminDestinations.USERS
+                    )
+                }
+                DashboardActionIcon("Movies", Icons.Default.VideoLibrary, Color.Cyan) {
+                    onNavigate(
+                        AdminDestinations.MOVIES
+                    )
+                }
+                DashboardActionIcon(
+                    "Subs",
+                    Icons.Default.CardMembership,
+                    Color.Yellow
+                ) { onNavigate(AdminDestinations.SUBSCRIPTIONS) }
+                DashboardActionIcon(
+                    "Profile",
+                    Icons.Default.AccountCircle,
+                    Color.White
+                ) { onNavigate(AdminDestinations.PROFILE) }
             }
         }
 
-        item { Text("Recent Activities", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        item {
+            Text(
+                "Recent Activities",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        }
 
         items(stats.recentActivities) { activity ->
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(36.dp).background(activity.color.copy(0.1f), CircleShape), contentAlignment = Alignment.Center) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(activity.color.copy(0.1f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(activity.icon, null, Modifier.size(16.dp), activity.color)
                 }
                 Spacer(Modifier.width(16.dp))
@@ -852,10 +1116,26 @@ fun AdminDashboardContent(adminName: String, stats: DashboardStats, onNavigate: 
 }
 
 @Composable
-fun DashboardStatCard(modifier: Modifier, title: String, value: String, icon: ImageVector, color: Color) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = dashGlassBg), border = BorderStroke(1.dp, dashGlassBorder), shape = RoundedCornerShape(20.dp)) {
+fun DashboardStatCard(
+    modifier: Modifier,
+    title: String,
+    value: String,
+    icon: ImageVector,
+    color: Color
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = dashGlassBg),
+        border = BorderStroke(1.dp, dashGlassBorder),
+        shape = RoundedCornerShape(20.dp)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Box(modifier = Modifier.size(32.dp).background(color.copy(0.1f), CircleShape), contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(18.dp), color) }
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(color.copy(0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Icon(icon, null, Modifier.size(18.dp), color) }
             Spacer(Modifier.height(12.dp))
             Text(value, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text(title, color = Color.White.copy(0.5f), fontSize = 11.sp)
@@ -865,8 +1145,16 @@ fun DashboardStatCard(modifier: Modifier, title: String, value: String, icon: Im
 
 @Composable
 fun DashboardActionIcon(label: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
-        Box(modifier = Modifier.size(60.dp).background(dashGlassBg, RoundedCornerShape(16.dp)).border(1.dp, dashGlassBorder, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) { Icon(icon, null, tint = color) }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .background(dashGlassBg, RoundedCornerShape(16.dp))
+                .border(1.dp, dashGlassBorder, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, null, tint = color) }
         Spacer(Modifier.height(8.dp))
         Text(label, color = Color.White.copy(0.8f), fontSize = 11.sp)
     }
@@ -881,7 +1169,13 @@ fun AdminProfileContent(
     onEditImageClicked: () -> Unit, onPasswordChangeClicked: () -> Unit
 ) {
     val context = LocalContext.current
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
 
         // ✅ UPDATED PROFILE IMAGE SECTION WITH EDIT ICON
         Box(contentAlignment = Alignment.Center) {
@@ -958,12 +1252,20 @@ fun AdminProfileContent(
         Spacer(Modifier.height(16.dp))
         Text(adminName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.AdminPanelSettings, null, tint = Color.Cyan, modifier = Modifier.size(16.dp))
+            Icon(
+                Icons.Default.AdminPanelSettings,
+                null,
+                tint = Color.Cyan,
+                modifier = Modifier.size(16.dp)
+            )
             Spacer(Modifier.width(4.dp))
             Text("Administrator", fontSize = 14.sp, color = Color.LightGray)
         }
         Spacer(Modifier.height(32.dp))
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 InfoRow(icon = Icons.Default.Email, label = "Email", text = adminEmail)
                 HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
@@ -971,14 +1273,32 @@ fun AdminProfileContent(
                 HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                 InfoRow(icon = Icons.Default.Cake, label = "Date of Birth", text = adminDob)
                 HorizontalDivider(color = Color.White.copy(0.2f))
-                Row(modifier = Modifier.fillMaxWidth().clickable { if (!isUploadingImage) onPasswordChangeClicked() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, null, tint = if (isUploadingImage) Color.Gray else Color.White, modifier = Modifier.size(24.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { if (!isUploadingImage) onPasswordChangeClicked() }
+                        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Lock,
+                        null,
+                        tint = if (isUploadingImage) Color.Gray else Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Password", color = if (isUploadingImage) Color.Gray else Color.White)
-                        Text("Last updated: $passwordLastUpdated", fontSize = 12.sp, color = if (isUploadingImage) Color.DarkGray else Color.LightGray)
+                        Text(
+                            "Last updated: $passwordLastUpdated",
+                            fontSize = 12.sp,
+                            color = if (isUploadingImage) Color.DarkGray else Color.LightGray
+                        )
                     }
-                    Icon(Icons.Default.ChevronRight, null, tint = if (isUploadingImage) Color.Gray else Color.White)
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        null,
+                        tint = if (isUploadingImage) Color.Gray else Color.White
+                    )
                 }
             }
         }
@@ -987,19 +1307,31 @@ fun AdminProfileContent(
             onClick = {
                 if (!isUploadingImage) {
                     FirebaseAuth.getInstance().signOut()
-                    context.startActivity(Intent(context, LoginActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+                    context.startActivity(Intent(context, LoginActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    })
                     (context as Activity).finish()
                 }
             },
             enabled = !isUploadingImage,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Red.copy(alpha = if (isUploadingImage) 0.3f else 0.7f)
             )
         ) {
-            Icon(Icons.Default.Logout, null, tint = if (isUploadingImage) Color.LightGray else Color.White)
+            Icon(
+                Icons.Default.Logout,
+                null,
+                tint = if (isUploadingImage) Color.LightGray else Color.White
+            )
             Spacer(Modifier.width(8.dp))
-            Text("Logout", color = if (isUploadingImage) Color.LightGray else Color.White, fontWeight = FontWeight.Bold)
+            Text(
+                "Logout",
+                color = if (isUploadingImage) Color.LightGray else Color.White,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

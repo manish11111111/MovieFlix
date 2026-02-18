@@ -6,18 +6,26 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.*
+import java.util.Calendar
+import java.util.Date
 
 class SubscriptionViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val statsRef = db.collection("Dashboard_stats").document("YbIkiRVdxGQqvza8K85i")
+
     // 1. Users Stream
     private val usersFlow = callbackFlow {
         val listener = db.collection("users").addSnapshotListener { snap, _ ->
-            trySend(snap?.documents?.map { it.data?.plus("userId" to it.id) ?: emptyMap() } ?: emptyList())
+            trySend(snap?.documents?.map { it.data?.plus("userId" to it.id) ?: emptyMap() }
+                ?: emptyList())
         }
         awaitClose { listener.remove() }
     }
@@ -25,7 +33,8 @@ class SubscriptionViewModel : ViewModel() {
     // 2. Plans Stream
     val plansFlow: StateFlow<List<Map<String, Any>>> = callbackFlow {
         val listener = db.collection("subscription_plans").addSnapshotListener { snap, _ ->
-            trySend(snap?.documents?.map { it.data?.plus("planId" to it.id) ?: emptyMap() } ?: emptyList())
+            trySend(snap?.documents?.map { it.data?.plus("planId" to it.id) ?: emptyMap() }
+                ?: emptyList())
         }
         awaitClose { listener.remove() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -33,7 +42,8 @@ class SubscriptionViewModel : ViewModel() {
     // 3. Subscriptions Stream
     private val rawSubsFlow = callbackFlow {
         val listener = db.collection("subscriptions").addSnapshotListener { snap, _ ->
-            trySend(snap?.documents?.map { it.data?.plus("id" to it.id) ?: emptyMap() } ?: emptyList())
+            trySend(snap?.documents?.map { it.data?.plus("id" to it.id) ?: emptyMap() }
+                ?: emptyList())
         }
         awaitClose { listener.remove() }
     }
@@ -69,7 +79,8 @@ class SubscriptionViewModel : ViewModel() {
             "active" to list.count { it["status"] == "active" },
             "deactivated" to list.count { it["status"] == "deactivated" },
             "expiring" to list.count {
-                it["status"] == "active" && (it["endDate"] as? Timestamp)?.toDate()?.before(cal.time) == true
+                it["status"] == "active" && (it["endDate"] as? Timestamp)?.toDate()
+                    ?.before(cal.time) == true
             },
             "revenue" to list.sumOf { (it["planPrice"] as? Number)?.toInt() ?: 0 }
         )
@@ -93,7 +104,8 @@ class SubscriptionViewModel : ViewModel() {
     }
 
     fun updatePlan(id: String, n: String, p: Int, d: Int) {
-        db.collection("subscription_plans").document(id).update(mapOf("name" to n, "price" to p, "duration" to d))
+        db.collection("subscription_plans").document(id)
+            .update(mapOf("name" to n, "price" to p, "duration" to d))
         logActivity("Plan Updated: $n", "plan")
     }
 
@@ -122,12 +134,15 @@ class SubscriptionViewModel : ViewModel() {
         viewModelScope.launch {
             val doc = db.collection("subscriptions").document(id).get().await()
             val current = doc.getTimestamp("endDate")?.toDate() ?: Date()
-            val newDate = Calendar.getInstance().apply { time = current; add(Calendar.DAY_OF_YEAR, days) }.time
+            val newDate = Calendar.getInstance()
+                .apply { time = current; add(Calendar.DAY_OF_YEAR, days) }.time
 
-            db.collection("subscriptions").document(id).update(mapOf(
-                "endDate" to Timestamp(newDate),
-                "status" to "active"
-            ))
+            db.collection("subscriptions").document(id).update(
+                mapOf(
+                    "endDate" to Timestamp(newDate),
+                    "status" to "active"
+                )
+            )
 
             logActivity("Validity extended for $userName by $days days", "sub")
         }

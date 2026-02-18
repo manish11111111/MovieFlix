@@ -18,9 +18,9 @@ import androidx.core.content.edit
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
-import com.google.firebase.firestore.DocumentSnapshot
 
 class MainActivity : AppCompatActivity() {
 
@@ -152,16 +152,28 @@ class MainActivity : AppCompatActivity() {
                         db.collection("users").document(currentUser.uid).get(Source.CACHE)
                             .addOnSuccessListener { cachedDoc ->
                                 if (cachedDoc.exists()) {
-                                    Toast.makeText(this, "Using offline mode. Some features may be limited.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(
+                                        this,
+                                        "Using offline mode. Some features may be limited.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                     handleUserDocument(cachedDoc)
                                 } else {
                                     // No cached data either
-                                    Toast.makeText(this, "Please check your internet connection.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(
+                                        this,
+                                        "Please check your internet connection.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                     navigateTo(LoginActivity::class.java)
                                 }
                             }
                             .addOnFailureListener { cacheError ->
-                                Toast.makeText(this, "Connection Error. Please check your internet.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    this,
+                                    "Connection Error. Please check your internet.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                                 navigateTo(LoginActivity::class.java)
                             }
                     }

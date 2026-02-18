@@ -1,26 +1,58 @@
 package com.manish.demo.ui.admin
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.ui.zIndex
-import com.manish.demo.ui.components.CustomToastCompose
-import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +64,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.ui.zIndex
+import com.manish.demo.ui.components.CustomToastCompose
 import com.manish.demo.viewmodel.AdminViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,7 +85,8 @@ fun UsersManagementScreen(
     var userForAdminAction by remember { mutableStateOf<Map<String, Any>?>(null) }
     var userForBanAction by remember { mutableStateOf<Map<String, Any>?>(null) }
 
-    val currentAdminUid = remember { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid }
+    val currentAdminUid =
+        remember { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid }
 
     LaunchedEffect(Unit) { viewModel.fetchUsers() }
 
@@ -63,14 +97,21 @@ fun UsersManagementScreen(
             val email = user["email"]?.toString()?.lowercase() ?: ""
             val phone = user["phone"]?.toString() ?: ""
             val query = searchQuery.lowercase()
-            uid != currentAdminUid && (name.contains(query) || email.contains(query) || phone.contains(query))
+            uid != currentAdminUid && (name.contains(query) || email.contains(query) || phone.contains(
+                query
+            ))
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        CustomToastCompose(message = toastMessage, showToast = showToast, onDismiss = { showToast = false })
+        CustomToastCompose(
+            message = toastMessage,
+            showToast = showToast,
+            onDismiss = { showToast = false })
 
-        Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+        Column(modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -79,9 +120,12 @@ fun UsersManagementScreen(
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.White) },
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                    focusedContainerColor = Color.White.copy(alpha = 0.05f), unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                    focusedBorderColor = Color(0xFF2ECC71), unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    focusedBorderColor = Color(0xFF2ECC71),
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
                 ),
                 singleLine = true
             )
@@ -93,7 +137,10 @@ fun UsersManagementScreen(
                     CircularProgressIndicator(color = Color(0xFF2ECC71))
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
                     items(items = filteredUsers, key = { it["uid"].toString() }) { user ->
                         UserManagementCard(
                             user = user,
@@ -126,7 +173,11 @@ fun UsersManagementScreen(
                         }
                     }) { Text("Promote", color = Color(0xFF2ECC71), fontWeight = FontWeight.Bold) }
                 },
-                dismissButton = { TextButton(onClick = { userForAdminAction = null }) { Text("Cancel", color = Color.White) } }
+                dismissButton = {
+                    TextButton(onClick = {
+                        userForAdminAction = null
+                    }) { Text("Cancel", color = Color.White) }
+                }
             )
         }
 
@@ -149,15 +200,37 @@ fun UsersManagementScreen(
                             showToast = true
                             isActionLoading = false
                         }
-                    }) { Text("Confirm", color = if (isBanned) Color.Green else Color.Red, fontWeight = FontWeight.Bold) }
+                    }) {
+                        Text(
+                            "Confirm",
+                            color = if (isBanned) Color.Green else Color.Red,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 },
-                dismissButton = { TextButton(onClick = { userForBanAction = null }) { Text("Cancel", color = Color.White) } }
+                dismissButton = {
+                    TextButton(onClick = { userForBanAction = null }) {
+                        Text(
+                            "Cancel",
+                            color = Color.White
+                        )
+                    }
+                }
             )
         }
 
         // Loader Overlay
-        androidx.compose.animation.AnimatedVisibility(visible = isActionLoading, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).zIndex(10f), contentAlignment = Alignment.Center) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isActionLoading,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .zIndex(10f), contentAlignment = Alignment.Center
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Color(0xFF2ECC71))
                     Spacer(Modifier.height(12.dp))
@@ -169,8 +242,21 @@ fun UsersManagementScreen(
         // Enlarged Image Dialog
         enlargedImage?.let { bitmap ->
             Dialog(onDismissRequest = { enlargedImage = null }) {
-                Box(modifier = Modifier.fillMaxSize().clickable { enlargedImage = null }, contentAlignment = Alignment.Center) {
-                    Image(bitmap = bitmap, contentDescription = null, modifier = Modifier.size(300.dp).clip(CircleShape).border(3.dp, Color(0xFF2ECC71), CircleShape), contentScale = ContentScale.Crop)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable { enlargedImage = null },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(300.dp)
+                            .clip(CircleShape)
+                            .border(3.dp, Color(0xFF2ECC71), CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
                 }
             }
         }
@@ -198,10 +284,14 @@ fun UserManagementCard(
     val decodedBitmap = remember(photoBase64) {
         if (photoBase64.isNotEmpty()) {
             try {
-                val cleanStr = if (photoBase64.contains(",")) photoBase64.split(",")[1] else photoBase64
+                val cleanStr =
+                    if (photoBase64.contains(",")) photoBase64.split(",")[1] else photoBase64
                 val bytes = android.util.Base64.decode(cleanStr, android.util.Base64.DEFAULT)
-                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            } catch (e: Exception) { null }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ?.asImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
         } else null
     }
 
@@ -215,25 +305,39 @@ fun UserManagementCard(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // User photo
-                Box(modifier = Modifier.size(56.dp).clickable { decodedBitmap?.let { onPhotoClick(it) } }) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clickable { decodedBitmap?.let { onPhotoClick(it) } }) {
                     if (decodedBitmap != null) {
                         Image(
                             bitmap = decodedBitmap,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize().clip(CircleShape).border(1.dp, Color(0xFF2ECC71), CircleShape),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .border(1.dp, Color(0xFF2ECC71), CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
                         Box(
-                            modifier = Modifier.fillMaxSize().background(Color.Gray.copy(0.3f), CircleShape),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Gray.copy(0.3f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(
+                                name.take(1).uppercase(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
 
-                Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                Column(modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)) {
                     Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(email, color = Color.LightGray, fontSize = 12.sp, maxLines = 1)
@@ -259,7 +363,11 @@ fun UserManagementCard(
                                     )
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.AdminPanelSettings, null, tint = if (isBanned) Color.Gray else Color(0xFF2196F3))
+                                    Icon(
+                                        Icons.Default.AdminPanelSettings,
+                                        null,
+                                        tint = if (isBanned) Color.Gray else Color(0xFF2196F3)
+                                    )
                                 },
                                 // 2. Disable promotion if already banned
                                 enabled = !isBanned,
@@ -276,7 +384,11 @@ fun UserManagementCard(
                                     )
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.Block, null, tint = if (isBanned) Color.Green else Color.Red)
+                                    Icon(
+                                        Icons.Default.Block,
+                                        null,
+                                        tint = if (isBanned) Color.Green else Color.Red
+                                    )
                                 },
                                 onClick = {
                                     showMenu = false
@@ -291,25 +403,54 @@ fun UserManagementCard(
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 InfoBlock("PHONE", phone, Icons.Default.Phone)
                 InfoBlock("DOB", dob, Icons.Default.Cake)
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.1f))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = Color.White.copy(alpha = 0.1f)
+            )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Column {
                     Text("ROLE", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(24.dp)) {
-                        Icon(if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person, null, tint = if (isAdmin) Color.Green else Color.LightGray, modifier = Modifier.size(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.height(24.dp)
+                    ) {
+                        Icon(
+                            if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person,
+                            null,
+                            tint = if (isAdmin) Color.Green else Color.LightGray,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(role.uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            role.uppercase(),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("STATUS", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "STATUS",
+                        color = Color.Gray,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     StatusChip(
                         text = if (isBanned) "BANNED" else "ACTIVE",
                         color = if (isBanned) Color.Red else Color(0xFF2ECC71),
@@ -325,7 +466,10 @@ fun UserManagementCard(
 fun InfoBlock(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Column {
         Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 2.dp)
+        ) {
             Icon(icon, null, modifier = Modifier.size(12.dp), tint = Color(0xFF2ECC71))
             Spacer(Modifier.width(4.dp))
             Text(value, color = Color.White, fontSize = 12.sp)

@@ -106,7 +106,8 @@ class OnboardingAdapter(private val items: List<OnboardingItem>) :
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): OnboardingViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_onboarding, parent, false)
+        val view =
+            LayoutInflater.from(parent.context).inflate(R.layout.item_onboarding, parent, false)
         return OnboardingViewHolder(view)
     }
 
