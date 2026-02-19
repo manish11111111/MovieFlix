@@ -20,8 +20,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingHorizontal="24dp"
-        android:layout_marginTop="60dp"
+        android:paddingHorizontal="@dimen/login_horizontal_padding"
+        android:layout_marginTop="@dimen/login_margin_top"
         app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
@@ -32,8 +32,8 @@
             android:layout_marginBottom="24dp">
 
             <ImageView
-                android:layout_width="60dp"
-                android:layout_height="60dp"
+                android:layout_width="@dimen/login_logo_size"
+                android:layout_height="@dimen/login_logo_size"
                 android:src="@drawable/ic_logo_m"
                 android:layout_marginEnd="12dp"
                 app:tint="#FFFFFF" />
@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:text="MovieFlix"
                 android:textColor="#FFFFFF"
-                android:textSize="28sp"
+                android:textSize="@dimen/login_title_size"
                 android:fontFamily="sans-serif-black" />
         </LinearLayout>
 
@@ -52,7 +52,7 @@
             android:layout_height="wrap_content"
             android:text="Welcome Back,"
             android:textColor="#FFFFFF"
-            android:textSize="32sp"
+            android:textSize="@dimen/login_header_title_size"
             android:textStyle="bold" />
 
         <TextView
@@ -60,7 +60,7 @@
             android:layout_height="wrap_content"
             android:text="Log in to continue your cinematic journey."
             android:textColor="#B3B3B3"
-            android:textSize="14sp"
+            android:textSize="@dimen/login_subtitle_size"
             android:layout_marginTop="4dp" />
     </LinearLayout>
 
@@ -69,8 +69,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingHorizontal="24dp"
-        android:layout_marginTop="40dp"
+        android:paddingHorizontal="@dimen/login_horizontal_padding"
+        android:layout_marginTop="@dimen/login_form_margin_top"
         app:layout_constraintTop_toBottomOf="@id/headerSection">
 
         <!-- ATTRACTIVE OUTLINED EMAIL -->
@@ -137,7 +137,7 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnLogin"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
+            android:layout_height="@dimen/login_button_height"
             android:layout_marginTop="30dp"
             android:text="LOG IN"
             android:textColor="#FFFFFF"

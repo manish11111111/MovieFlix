@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Text Sizes - Compact (Phones) -->
+    <dimen name="text_title_large">28sp</dimen>
+    <dimen name="text_title">20sp</dimen>
+    <dimen name="text_subtitle">16sp</dimen>
+    <dimen name="text_body">14sp</dimen>
+    <dimen name="text_caption">12sp</dimen>
+    <dimen name="text_small">10sp</dimen>
+
+    <!-- Padding/Margins -->
+    <dimen name="padding_large">24dp</dimen>
+    <dimen name="padding_medium">16dp</dimen>
+    <dimen name="padding_small">8dp</dimen>
+    <dimen name="padding_tiny">4dp</dimen>
+
+    <!-- Card Sizes -->
+    <dimen name="movie_card_width">140dp</dimen>
+    <dimen name="movie_card_height">200dp</dimen>
+    <dimen name="movie_poster_width">100dp</dimen>
+    <dimen name="movie_poster_height">140dp</dimen>
+
+    <!-- Icon Sizes -->
+    <dimen name="icon_large">48dp</dimen>
+    <dimen name="icon_medium">24dp</dimen>
+    <dimen name="icon_small">16dp</dimen>
+
+    <!-- Grid Columns -->
+    <integer name="grid_columns">2</integer>
+
+    <!-- Splash / MainActivity -->
+    <dimen name="splash_logo_size">80dp</dimen>
+    <dimen name="splash_title_size">48sp</dimen>
+    <dimen name="splash_tagline_size">12sp</dimen>
+
+    <!-- Login Screen -->
+    <dimen name="login_logo_size">60dp</dimen>
+    <dimen name="login_title_size">28sp</dimen>
+    <dimen name="login_header_title_size">32sp</dimen>
+    <dimen name="login_subtitle_size">14sp</dimen>
+    <dimen name="login_margin_top">60dp</dimen>
+    <dimen name="login_form_margin_top">40dp</dimen>
+    <dimen name="login_button_height">60dp</dimen>
+    <dimen name="login_horizontal_padding">24dp</dimen>
+
+    <!-- Complete Profile Screen -->
+    <dimen name="profile_image_size">130dp</dimen>
+    <dimen name="profile_image_radius">65dp</dimen>
+    <dimen name="profile_title_size">28sp</dimen>
+    <dimen name="profile_header_margin_top">70dp</dimen>
+    <dimen name="form_card_margin_horizontal">24dp</dimen>
+    <dimen name="form_card_margin_top">12dp</dimen>
+    <dimen name="save_button_height">60dp</dimen>
+
+    <!-- Compose Screens (Admin/User Profile, Dashboard) -->
+    <dimen name="compose_profile_image_size">120dp</dimen>
+    <dimen name="dashboard_chart_height">100dp</dimen>
+    <dimen name="dashboard_action_icon_box">60dp</dimen>
+</resources>
+

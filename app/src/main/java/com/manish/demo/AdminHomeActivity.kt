@@ -132,13 +132,14 @@ import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import com.manish.demo.utils.getResponsiveSizes
 
 // --- DATA MODELS & CONSTANTS ---
 data class DashboardStats(
     val totalUsers: Int = 0,
     val totalMovies: Int = 0,
     val activeSubs: Int = 0,
-    val totalRevenue: Long = 0L,
+    val totalRevenue: Double = 0.0,
     val weeklyRevenue: List<Float> = listOf(0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f),
     val recentActivities: List<DashboardActivityItem> = emptyList()
 )
@@ -167,79 +168,90 @@ class DashboardViewModel : ViewModel() {
     }
 
     private fun startListening() {
-        // 1. LIVE SUMMARY STATS (The Cards)
-        // Matches your screenshot: Collection "Dashboard_stats"
-        db.collection("Dashboard_stats")
-            .limit(1) // Automatically finds your one document even with a random ID
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("DASH_DEBUG", "Stats Error: ${error.message}")
-                    return@addSnapshotListener
-                }
+        // Local cache of planId -> price, updated by the plans listener
+        val planPriceCache = mutableMapOf<String, Double>()
+        // Local cache of subscription docs, updated by the subscriptions listener
+        var subsCache: List<com.google.firebase.firestore.DocumentSnapshot> = emptyList()
 
-                val doc = snapshot?.documents?.firstOrNull()
-                if (doc != null && doc.exists()) {
-                    // Safe number parsing
-                    val users = (doc.get("totalUsers") as? Number)?.toInt() ?: 0
-                    val movies = (doc.get("totalMovies") as? Number)?.toInt() ?: 0
-                    val subs = (doc.get("activeSubs") as? Number)?.toInt() ?: 0
-                    val rev = (doc.get("totalRevenue") as? Number)?.toLong() ?: 0L
-
-                    _stats.value = _stats.value.copy(
-                        totalUsers = users,
-                        totalMovies = movies,
-                        activeSubs = subs,
-                        totalRevenue = rev
-                    )
-                    Log.d("DASH_DEBUG", "Stats updated: $users users, $rev revenue")
-                }
+        // Helper: recalculate revenue + chart using the two caches — same join as SubscriptionViewModel
+        fun recalculate() {
+            // Revenue: for each sub, look up plan price in cache (falls back to stored "price" field)
+            val totalRev = subsCache.sumOf { d ->
+                val planId = d.getString("planId") ?: ""
+                planPriceCache[planId]                              // joined plan price (same as subs tab)
+                    ?: (d.get("price") as? Number)?.toDouble()     // fallback: stored price field
+                    ?: 0.0
             }
 
-        // 2. DYNAMIC WEEKLY REVENUE (The Graph)
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.DAY_OF_YEAR, -7)
-        val oneWeekAgo = cal.time
+            // Daily chart: last 7 days, using createdAt + same joined plan price
+            val sevenDaysAgo = Calendar.getInstance().apply {
+                add(Calendar.DAY_OF_YEAR, -6)
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.time
 
-        db.collection("subscriptions")
-            .whereGreaterThan("timestamp", Timestamp(oneWeekAgo)) // Using your new field name
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("DASH_DEBUG", "Chart Error: ${error.message}")
-                    return@addSnapshotListener
-                }
-
-                val dayTotals = mutableMapOf<Int, Float>()
-
-                snapshot?.documents?.forEach { d ->
-                    val ts = d.getTimestamp("timestamp") // Using your new field name
-                    ts?.let {
-                        val c = Calendar.getInstance().apply { time = it.toDate() }
+            val dayTotals = mutableMapOf<Int, Float>()
+            subsCache.forEach { d ->
+                val ts = d.getTimestamp("createdAt") ?: d.getTimestamp("startDate")
+                ts?.let {
+                    val subDate = it.toDate()
+                    if (!subDate.before(sevenDaysAgo)) {
+                        val c = Calendar.getInstance().apply { time = subDate }
                         val dayKey = c.get(Calendar.DAY_OF_YEAR)
-
-                        // UPDATED: Using 'pricePaid' as per your requirement
-                        val price = (d.get("pricePaid") as? Number)?.toFloat() ?: 0f
-
+                        val planId = d.getString("planId") ?: ""
+                        val price = (planPriceCache[planId]
+                            ?: (d.get("price") as? Number)?.toDouble()
+                            ?: 0.0).toFloat()
                         dayTotals[dayKey] = (dayTotals[dayKey] ?: 0f) + price
                     }
                 }
+            }
 
-                val maxRevenue = dayTotals.values.maxOrNull() ?: 1f
-                val chartData = mutableListOf<Float>()
+            val maxRevenue = dayTotals.values.maxOrNull()?.takeIf { it > 0 } ?: 1f
+            val chartData = (6 downTo 0).map { i ->
+                val dayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
+                val dailySum = dayTotals[dayCal.get(Calendar.DAY_OF_YEAR)] ?: 0f
+                (dailySum / maxRevenue).coerceAtLeast(0.05f)
+            }
 
-                // Build 7 bars representing the last 7 days
-                for (i in 6 downTo 0) {
-                    val tCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
-                    val dayOfYear = tCal.get(Calendar.DAY_OF_YEAR)
-                    val dailySum = dayTotals[dayOfYear] ?: 0f
+            _stats.value = _stats.value.copy(
+                totalRevenue = totalRev,
+                weeklyRevenue = chartData
+            )
+            Log.d("DASH_DEBUG", "Revenue recalculated: ₹$totalRev")
+        }
 
-                    // Normalizing bar height (0.1 to 1.0)
-                    val barHeight =
-                        if (maxRevenue > 0) (dailySum / maxRevenue).coerceAtLeast(0.1f) else 0.1f
-                    chartData.add(barHeight)
+        // 1. LIVE SUMMARY STATS (users, movies, activeSubs from Dashboard_stats)
+        db.collection("Dashboard_stats")
+            .limit(1)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { Log.e("DASH_DEBUG", "Stats Error: ${error.message}"); return@addSnapshotListener }
+                val doc = snapshot?.documents?.firstOrNull() ?: return@addSnapshotListener
+                _stats.value = _stats.value.copy(
+                    totalUsers = (doc.get("totalUsers") as? Number)?.toInt() ?: 0,
+                    totalMovies = (doc.get("totalMovies") as? Number)?.toInt() ?: 0,
+                    activeSubs = (doc.get("activeSubs") as? Number)?.toInt() ?: 0
+                )
+            }
+
+        // 2. PLANS listener — keeps planPriceCache fresh, then recalculates revenue
+        db.collection("subscription_plans")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { Log.e("DASH_DEBUG", "Plans Error: ${error.message}"); return@addSnapshotListener }
+                planPriceCache.clear()
+                snapshot?.documents?.forEach { d ->
+                    val price = (d.get("price") as? Number)?.toDouble() ?: 0.0
+                    planPriceCache[d.id] = price
                 }
+                recalculate()
+            }
 
-                _stats.value = _stats.value.copy(weeklyRevenue = chartData)
-                Log.d("DASH_DEBUG", "Chart updated with ${chartData.size} bars")
+        // 3. SUBSCRIPTIONS listener — keeps subsCache fresh, then recalculates revenue + chart
+        db.collection("subscriptions")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { Log.e("DASH_DEBUG", "Subs Error: ${error.message}"); return@addSnapshotListener }
+                subsCache = snapshot?.documents ?: emptyList()
+                recalculate()
             }
 
         // 3. LIVE ACTIVITY FEED
@@ -951,23 +963,25 @@ fun AdminDashboardContent(
     stats: DashboardStats,
     onNavigate: (AdminDestinations) -> Unit
 ) {
+    val sizes = getResponsiveSizes()
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = sizes.paddingMedium),
         contentPadding = PaddingValues(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(sizes.paddingMedium)
     ) {
         item {
             Column(modifier = Modifier.padding(top = 12.dp)) {
-                Text("Welcome back,", color = Color.White.copy(0.6f), fontSize = 14.sp)
-                Text(adminName, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("Welcome back,", color = Color.White.copy(0.6f), fontSize = sizes.bodySize)
+                Text(adminName, color = Color.White, fontSize = sizes.titleLargeSize, fontWeight = FontWeight.Bold)
             }
         }
 
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(sizes.paddingSmall)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall)) {
                     DashboardStatCard(
                         Modifier.weight(1f),
                         "Total Users",
@@ -978,12 +992,12 @@ fun AdminDashboardContent(
                     DashboardStatCard(
                         Modifier.weight(1f),
                         "Revenue",
-                        "₹${if (stats.totalRevenue >= 1000) "${stats.totalRevenue / 1000}K" else stats.totalRevenue}",
+                        "₹${if (stats.totalRevenue >= 1000) String.format("%.2f", stats.totalRevenue / 1000) + "K" else String.format("%.2f", stats.totalRevenue)}",
                         Icons.Default.AttachMoney,
                         Color.Yellow
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall)) {
                     DashboardStatCard(
                         Modifier.weight(1f),
                         "Active Subs",
@@ -1009,19 +1023,19 @@ fun AdminDashboardContent(
                 border = BorderStroke(1.dp, dashGlassBorder),
                 shape = RoundedCornerShape(24.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(sizes.paddingMedium)) {
                     Text(
-                        "Weekly Revenue Trend",
+                        "Daily Revenue (Last 7 Days)",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = sizes.subtitleSize
                     )
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(sizes.paddingMedium))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(100.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            .height(sizes.paddingLarge * 4),
+                        horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall),
                         verticalAlignment = Alignment.Bottom
                     ) {
                         stats.weeklyRevenue.forEach { h ->
@@ -1033,10 +1047,7 @@ fun AdminDashboardContent(
                                     .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                                     .background(
                                         Brush.verticalGradient(
-                                            listOf(
-                                                dashEmerald,
-                                                dashEmerald.copy(0.1f)
-                                            )
+                                            listOf(dashEmerald, dashEmerald.copy(0.1f))
                                         )
                                     )
                             )
@@ -1051,33 +1062,17 @@ fun AdminDashboardContent(
                 "Management Hub",
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
+                fontSize = sizes.titleSize
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(sizes.paddingSmall))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                DashboardActionIcon("Users", Icons.Default.People, dashEmerald) {
-                    onNavigate(
-                        AdminDestinations.USERS
-                    )
-                }
-                DashboardActionIcon("Movies", Icons.Default.VideoLibrary, Color.Cyan) {
-                    onNavigate(
-                        AdminDestinations.MOVIES
-                    )
-                }
-                DashboardActionIcon(
-                    "Subs",
-                    Icons.Default.CardMembership,
-                    Color.Yellow
-                ) { onNavigate(AdminDestinations.SUBSCRIPTIONS) }
-                DashboardActionIcon(
-                    "Profile",
-                    Icons.Default.AccountCircle,
-                    Color.White
-                ) { onNavigate(AdminDestinations.PROFILE) }
+                DashboardActionIcon("Users", Icons.Default.People, dashEmerald) { onNavigate(AdminDestinations.USERS) }
+                DashboardActionIcon("Movies", Icons.Default.VideoLibrary, Color.Cyan) { onNavigate(AdminDestinations.MOVIES) }
+                DashboardActionIcon("Subs", Icons.Default.CardMembership, Color.Yellow) { onNavigate(AdminDestinations.SUBSCRIPTIONS) }
+                DashboardActionIcon("Profile", Icons.Default.AccountCircle, Color.White) { onNavigate(AdminDestinations.PROFILE) }
             }
         }
 
@@ -1086,7 +1081,7 @@ fun AdminDashboardContent(
                 "Recent Activities",
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
+                fontSize = sizes.titleSize
             )
         }
 
@@ -1094,21 +1089,21 @@ fun AdminDashboardContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = sizes.paddingSmall),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(sizes.iconMedium + 12.dp)
                         .background(activity.color.copy(0.1f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(activity.icon, null, Modifier.size(16.dp), activity.color)
+                    Icon(activity.icon, null, Modifier.size(sizes.iconSmall), activity.color)
                 }
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(sizes.paddingMedium))
                 Column {
-                    Text(activity.title, color = Color.White, fontSize = 14.sp)
-                    Text(activity.time, color = Color.White.copy(0.4f), fontSize = 11.sp)
+                    Text(activity.title, color = Color.White, fontSize = sizes.bodySize)
+                    Text(activity.time, color = Color.White.copy(0.4f), fontSize = sizes.smallSize)
                 }
             }
         }
@@ -1123,61 +1118,63 @@ fun DashboardStatCard(
     icon: ImageVector,
     color: Color
 ) {
+    val sizes = getResponsiveSizes()
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = dashGlassBg),
         border = BorderStroke(1.dp, dashGlassBorder),
         shape = RoundedCornerShape(20.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(sizes.paddingMedium)) {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(sizes.iconMedium + 8.dp)
                     .background(color.copy(0.1f), CircleShape),
                 contentAlignment = Alignment.Center
-            ) { Icon(icon, null, Modifier.size(18.dp), color) }
-            Spacer(Modifier.height(12.dp))
-            Text(value, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text(title, color = Color.White.copy(0.5f), fontSize = 11.sp)
+            ) { Icon(icon, null, Modifier.size(sizes.iconSmall), color) }
+            Spacer(Modifier.height(sizes.paddingSmall))
+            Text(value, color = Color.White, fontSize = sizes.titleSize, fontWeight = FontWeight.Bold)
+            Text(title, color = Color.White.copy(0.5f), fontSize = sizes.smallSize)
         }
     }
 }
 
 @Composable
 fun DashboardActionIcon(label: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
+    val sizes = getResponsiveSizes()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable { onClick() }) {
         Box(
             modifier = Modifier
-                .size(60.dp)
+                .size(sizes.iconLarge + 12.dp)
                 .background(dashGlassBg, RoundedCornerShape(16.dp))
                 .border(1.dp, dashGlassBorder, RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center
-        ) { Icon(icon, null, tint = color) }
-        Spacer(Modifier.height(8.dp))
-        Text(label, color = Color.White.copy(0.8f), fontSize = 11.sp)
+        ) { Icon(icon, null, tint = color, modifier = Modifier.size(sizes.iconMedium)) }
+        Spacer(Modifier.height(sizes.paddingSmall))
+        Text(label, color = Color.White.copy(0.8f), fontSize = sizes.smallSize)
     }
 }
 
-// --- PROFILE SECTION ---
 @Composable
 fun AdminProfileContent(
     adminName: String, adminEmail: String, adminPhone: String, adminDob: String,
     adminImageBitmap: Bitmap?, passwordLastUpdated: String, isUploadingImage: Boolean,
-    onShowImageDialog: () -> Unit, // ✅ ADDED PARAMETER
+    onShowImageDialog: () -> Unit,
     onEditImageClicked: () -> Unit, onPasswordChangeClicked: () -> Unit
 ) {
     val context = LocalContext.current
+    val sizes = getResponsiveSizes()
+    val profileImageSize = sizes.posterWidth + 20.dp // COMPACT: 120dp | MEDIUM: 150dp | EXPANDED: 180dp
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(sizes.paddingMedium),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-        // ✅ UPDATED PROFILE IMAGE SECTION WITH EDIT ICON
         Box(contentAlignment = Alignment.Center) {
             Box(contentAlignment = Alignment.BottomEnd) {
                 if (adminImageBitmap != null) {
@@ -1185,14 +1182,10 @@ fun AdminProfileContent(
                         bitmap = adminImageBitmap.asImageBitmap(),
                         contentDescription = "Admin Profile",
                         modifier = Modifier
-                            .size(120.dp)
+                            .size(profileImageSize)
                             .clip(CircleShape)
                             .border(2.dp, Color.White, CircleShape)
-                            .clickable {
-                                if (!isUploadingImage) {
-                                    onShowImageDialog()
-                                }
-                            },
+                            .clickable { if (!isUploadingImage) onShowImageDialog() },
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -1200,73 +1193,53 @@ fun AdminProfileContent(
                         Icons.Default.AccountCircle,
                         contentDescription = "Default Profile",
                         modifier = Modifier
-                            .size(120.dp)
-                            .clickable {
-                                if (!isUploadingImage) {
-                                    onShowImageDialog()
-                                }
-                            },
+                            .size(profileImageSize)
+                            .clickable { if (!isUploadingImage) onShowImageDialog() },
                         tint = Color.LightGray
                     )
                 }
-
-                // ✅ EDIT ICON OVERLAY
                 Icon(
                     imageVector = Icons.Default.Edit,
                     contentDescription = "Edit Photo",
                     tint = if (isUploadingImage) Color.Gray else Color.White,
                     modifier = Modifier
-                        .size(30.dp)
+                        .size(sizes.iconMedium + 6.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (isUploadingImage) Color.DarkGray.copy(alpha = 0.5f)
-                            else Color.Black.copy(alpha = 0.5f)
-                        )
-                        .clickable {
-                            if (!isUploadingImage) {
-                                onEditImageClicked()
-                            }
-                        }
+                        .background(if (isUploadingImage) Color.DarkGray.copy(0.5f) else Color.Black.copy(0.5f))
+                        .clickable { if (!isUploadingImage) onEditImageClicked() }
                         .padding(4.dp)
                 )
             }
-
-            // ✅ LOADING INDICATOR
             if (isUploadingImage) {
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(profileImageSize)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
                         color = Color.White,
-                        modifier = Modifier.size(30.dp),
+                        modifier = Modifier.size(sizes.iconMedium + 6.dp),
                         strokeWidth = 3.dp
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-        Text(adminName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Spacer(Modifier.height(sizes.paddingMedium))
+        Text(adminName, fontSize = sizes.titleSize, fontWeight = FontWeight.Bold, color = Color.White)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.AdminPanelSettings,
-                null,
-                tint = Color.Cyan,
-                modifier = Modifier.size(16.dp)
-            )
+            Icon(Icons.Default.AdminPanelSettings, null, tint = Color.Cyan, modifier = Modifier.size(sizes.iconSmall))
             Spacer(Modifier.width(4.dp))
-            Text("Administrator", fontSize = 14.sp, color = Color.LightGray)
+            Text("Administrator", fontSize = sizes.bodySize, color = Color.LightGray)
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(sizes.paddingLarge))
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(sizes.paddingMedium)) {
                 InfoRow(icon = Icons.Default.Email, label = "Email", text = adminEmail)
                 HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                 InfoRow(icon = Icons.Default.Phone, label = "Phone", text = adminPhone)
@@ -1279,30 +1252,17 @@ fun AdminProfileContent(
                         .clickable { if (!isUploadingImage) onPasswordChangeClicked() }
                         .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Lock,
-                        null,
-                        tint = if (isUploadingImage) Color.Gray else Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(Modifier.width(16.dp))
+                    Icon(Icons.Default.Lock, null, tint = if (isUploadingImage) Color.Gray else Color.White, modifier = Modifier.size(sizes.iconMedium))
+                    Spacer(Modifier.width(sizes.paddingMedium))
                     Column(Modifier.weight(1f)) {
-                        Text("Password", color = if (isUploadingImage) Color.Gray else Color.White)
-                        Text(
-                            "Last updated: $passwordLastUpdated",
-                            fontSize = 12.sp,
-                            color = if (isUploadingImage) Color.DarkGray else Color.LightGray
-                        )
+                        Text("Password", color = if (isUploadingImage) Color.Gray else Color.White, fontSize = sizes.bodySize)
+                        Text("Last updated: $passwordLastUpdated", fontSize = sizes.captionSize, color = if (isUploadingImage) Color.DarkGray else Color.LightGray)
                     }
-                    Icon(
-                        Icons.Default.ChevronRight,
-                        null,
-                        tint = if (isUploadingImage) Color.Gray else Color.White
-                    )
+                    Icon(Icons.Default.ChevronRight, null, tint = if (isUploadingImage) Color.Gray else Color.White)
                 }
             }
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(sizes.paddingLarge))
         Button(
             onClick = {
                 if (!isUploadingImage) {
@@ -1314,24 +1274,12 @@ fun AdminProfileContent(
                 }
             },
             enabled = !isUploadingImage,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Red.copy(alpha = if (isUploadingImage) 0.3f else 0.7f)
-            )
+            modifier = Modifier.fillMaxWidth().height(sizes.paddingLarge * 2),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = if (isUploadingImage) 0.3f else 0.7f))
         ) {
-            Icon(
-                Icons.Default.Logout,
-                null,
-                tint = if (isUploadingImage) Color.LightGray else Color.White
-            )
+            Icon(Icons.Default.Logout, null, tint = if (isUploadingImage) Color.LightGray else Color.White)
             Spacer(Modifier.width(8.dp))
-            Text(
-                "Logout",
-                color = if (isUploadingImage) Color.LightGray else Color.White,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Logout", color = if (isUploadingImage) Color.LightGray else Color.White, fontWeight = FontWeight.Bold, fontSize = sizes.bodySize)
         }
     }
 }

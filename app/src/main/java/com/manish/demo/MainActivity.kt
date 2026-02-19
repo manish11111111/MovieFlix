@@ -68,10 +68,9 @@ class MainActivity : AppCompatActivity() {
         ivLogo?.scaleX = 1.5f
         ivLogo?.scaleY = 1.5f
 
-        // Center the Logo visually:
-        // We shift the container RIGHT by roughly half the width of the hidden text.
-        // This ensures the "M" is dead center on the screen.
-        logoContainer?.translationX = 180f
+        // Center the Logo visually by shifting container by a screen-proportional offset.
+        // This ensures the "M" is dead center on any screen size/density.
+        logoContainer?.translationX = resources.displayMetrics.widthPixels * 0.17f
 
         // ============================================
         // 3. START THE "JUMP & SPIN" ANIMATION

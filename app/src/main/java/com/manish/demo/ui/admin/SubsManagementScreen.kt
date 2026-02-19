@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import com.manish.demo.utils.getResponsiveSizes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.AttachMoney
@@ -171,11 +172,11 @@ fun SubscriptionManagementScreen(viewModel: SubscriptionViewModel, modifier: Mod
                         Icons.Filled.Block,
                         Color.Red
                     )
-                    val rev = stats["revenue"]?.toString()?.toLongOrNull() ?: 0L
+                    val rev = stats["revenue"]?.toString()?.toDoubleOrNull() ?: 0.0
                     StatBox(
                         Modifier.weight(1f),
                         "Revenue",
-                        if (rev >= 1000) "₹${rev / 1000}K" else "₹$rev",
+                        if (rev >= 1000) "₹${String.format("%.2f", rev / 1000)}K" else "₹${String.format("%.2f", rev)}",
                         Icons.Filled.AttachMoney,
                         Color.Yellow
                     )
@@ -818,6 +819,7 @@ private fun StatBox(
     icon: ImageVector,
     color: Color
 ) {
+    val sizes = getResponsiveSizes()
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = glassBg),
@@ -827,15 +829,15 @@ private fun StatBox(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp),
+                .padding(vertical = sizes.paddingSmall + 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(icon, null, Modifier.size(14.dp), color.copy(alpha = 0.8f))
-            Text(value, color = color, fontSize = 16.sp)
+            Icon(icon, null, Modifier.size(sizes.iconSmall), color.copy(alpha = 0.8f))
+            Text(value, color = color, fontSize = sizes.subtitleSize, fontWeight = FontWeight.Bold)
             Text(
                 title.uppercase(),
                 color = Color.White.copy(alpha = 0.5f),
-                fontSize = 7.sp,
+                fontSize = sizes.smallSize,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -872,21 +874,22 @@ private fun PlanContent(
     onDelete: (String, String) -> Unit,
     isGlobalLoading: Boolean
 ) {
+    val sizes = getResponsiveSizes()
     Column {
         Button(
             onClick = onAdd,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(sizes.paddingLarge * 2),
             colors = ButtonDefaults.buttonColors(containerColor = glassBg),
             shape = RoundedCornerShape(12.dp),
             enabled = !isGlobalLoading
         ) {
             Icon(Icons.Default.Add, null, tint = emeraldGreen)
-            Text(" ADD NEW PLAN", color = emeraldGreen, fontWeight = FontWeight.Bold)
+            Text(" ADD NEW PLAN", color = emeraldGreen, fontWeight = FontWeight.Bold, fontSize = sizes.bodySize)
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(sizes.paddingMedium))
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(plans) { plan ->
@@ -897,99 +900,46 @@ private fun PlanContent(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(sizes.paddingMedium),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // LEFT SIDE: Plan Information with Icons
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            // Plan Name
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(sizes.paddingTiny)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Label, null, Modifier.size(14.dp), emeraldGreen)
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = plan["name"].toString(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
+                                Icon(Icons.Default.Label, null, Modifier.size(sizes.iconSmall), emeraldGreen)
+                                Spacer(Modifier.width(sizes.paddingSmall))
+                                Text(text = plan["name"].toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = sizes.subtitleSize)
                             }
-
-                            // Duration
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Timer,
-                                    null,
-                                    Modifier.size(12.dp),
-                                    Color.White.copy(0.5f)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = "${plan["duration"]} Days Access",
-                                    color = Color.White.copy(0.6f),
-                                    fontSize = 12.sp
-                                )
+                                Icon(Icons.Default.Timer, null, Modifier.size(sizes.iconSmall - 2.dp), Color.White.copy(0.5f))
+                                Spacer(Modifier.width(sizes.paddingSmall))
+                                Text(text = "${plan["duration"]} Days Access", color = Color.White.copy(0.6f), fontSize = sizes.captionSize)
                             }
-
-                            // Price
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Payments,
-                                    null,
-                                    Modifier.size(12.dp),
-                                    Color.Yellow.copy(0.8f)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = "₹${plan["price"]}",
-                                    color = emeraldGreen,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 18.sp
-                                )
+                                Icon(Icons.Default.Payments, null, Modifier.size(sizes.iconSmall - 2.dp), Color.Yellow.copy(0.8f))
+                                Spacer(Modifier.width(sizes.paddingSmall))
+                                Text(text = "₹${plan["price"]}", color = emeraldGreen, fontWeight = FontWeight.ExtraBold, fontSize = sizes.titleSize)
                             }
                         }
-
                         // RIGHT SIDE: Actions
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall)) {
                             IconButton(
                                 onClick = { if (!isGlobalLoading) onEdit(plan) },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(sizes.iconMedium + 12.dp)
                                     .background(Color.White.copy(0.05f), CircleShape),
                                 enabled = !isGlobalLoading
                             ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    null,
-                                    Modifier.size(18.dp),
-                                    Color.White.copy(0.7f)
-                                )
+                                Icon(Icons.Default.Edit, null, Modifier.size(sizes.iconSmall + 2.dp), Color.White.copy(0.7f))
                             }
-
                             IconButton(
-                                onClick = {
-                                    if (!isGlobalLoading) onDelete(
-                                        plan["planId"].toString(),
-                                        plan["name"].toString()
-                                    )
-                                },
+                                onClick = { if (!isGlobalLoading) onDelete(plan["planId"].toString(), plan["name"].toString()) },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(sizes.iconMedium + 12.dp)
                                     .background(Color.Red.copy(0.1f), CircleShape),
                                 enabled = !isGlobalLoading
                             ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    null,
-                                    Modifier.size(18.dp),
-                                    Color.Red.copy(0.8f)
-                                )
+                                Icon(Icons.Default.Delete, null, Modifier.size(sizes.iconSmall + 2.dp), Color.Red.copy(0.8f))
                             }
                         }
                     }

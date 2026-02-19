@@ -82,7 +82,7 @@ class SubscriptionViewModel : ViewModel() {
                 it["status"] == "active" && (it["endDate"] as? Timestamp)?.toDate()
                     ?.before(cal.time) == true
             },
-            "revenue" to list.sumOf { (it["planPrice"] as? Number)?.toInt() ?: 0 }
+            "revenue" to list.sumOf { (it["planPrice"] as? Number)?.toDouble() ?: 0.0 }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 

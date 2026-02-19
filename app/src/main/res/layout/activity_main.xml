@@ -24,8 +24,8 @@
         <!-- LOGO: Starts Big in logic -->
         <ImageView
             android:id="@+id/ivLogo"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="@dimen/splash_logo_size"
+            android:layout_height="@dimen/splash_logo_size"
             android:src="@drawable/ic_logo_m"
             android:contentDescription="App Logo" />
 
@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:text="MovieFlix"
             android:textColor="#FFFFFF"
-            android:textSize="48sp"
+            android:textSize="@dimen/splash_title_size"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
             android:letterSpacing="0.02"
@@ -54,7 +54,7 @@
         android:layout_height="wrap_content"
         android:text="Unlimited Entertainment"
         android:textColor="#B3B3B3"
-        android:textSize="12sp"
+        android:textSize="@dimen/splash_tagline_size"
         android:letterSpacing="0.3"
         android:textAllCaps="true"
         android:alpha="0"

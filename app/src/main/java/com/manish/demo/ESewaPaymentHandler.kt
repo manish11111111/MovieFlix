@@ -227,11 +227,19 @@ class ESewaPaymentHandler : ComponentActivity() {
         calendar.add(Calendar.DAY_OF_YEAR, planDuration)
         val endDate = calendar.time
 
+        val transactionId = extractRefId(paymentMessage).ifEmpty { "esewa_${System.currentTimeMillis()}" }
+
         val subscriptionData = hashMapOf(
             "userId" to userId,
             "planId" to planId,
+            "planName" to planName,
             "status" to "active",
+            "startDate" to Timestamp(Calendar.getInstance().time),
             "endDate" to Timestamp(endDate),
+            "paymentMethod" to "Esewa",
+            "transactionId" to transactionId,
+            "price" to planPrice.toInt(),
+            "duration" to planDuration,
             "createdAt" to FieldValue.serverTimestamp()
         )
 
@@ -240,6 +248,14 @@ class ESewaPaymentHandler : ComponentActivity() {
             .addOnSuccessListener { documentReference ->
                 val subscriptionId = documentReference.id
                 Log.d("ESewaPayment", "Subscription created: $subscriptionId")
+
+                // ✅ Write to payments collection with method: "Esewa"
+                recordPayment(
+                    userId = userId,
+                    subscriptionId = subscriptionId,
+                    transactionId = transactionId,
+                    isExtension = false
+                )
 
                 updateUserDocument(userId)
                 updateSubscriptionStats()
@@ -273,14 +289,18 @@ class ESewaPaymentHandler : ComponentActivity() {
                 calendar.add(Calendar.DAY_OF_YEAR, planDuration)
                 val newEndDate = calendar.time
 
+                val transactionId = extractRefId(paymentMessage).ifEmpty { "esewa_ext_${System.currentTimeMillis()}" }
+
                 Log.d("ESewaPayment", "Extending subscription: Old end=$currentEndDate, New end=$newEndDate, Added=$planDuration days")
 
-                // Update subscription with new end date
+                // Update subscription with new end date + payment info
                 db.collection("subscriptions").document(subscriptionId)
                     .update(
                         mapOf(
                             "endDate" to Timestamp(newEndDate),
                             "status" to "active",
+                            "paymentMethod" to "Esewa",
+                            "transactionId" to transactionId,
                             "lastUpdated" to FieldValue.serverTimestamp()
                         )
                     )
@@ -290,8 +310,18 @@ class ESewaPaymentHandler : ComponentActivity() {
                         // Log extension activity
                         val userId = document.getString("userId")
                         if (userId != null) {
+                            // ✅ Write to payments collection with method: "Esewa"
+                            recordPayment(
+                                userId = userId,
+                                subscriptionId = subscriptionId,
+                                transactionId = transactionId,
+                                isExtension = true
+                            )
                             logExtensionActivity(userId, planName, planDuration)
                         }
+
+                        // ✅ Update totalRevenue in Dashboard_stats for extensions
+                        updateRevenueForExtension()
 
                         showCustomToast("Subscription Extended Successfully!")
                         finishWithSuccess(paymentMessage, subscriptionExtended = true)
@@ -316,6 +346,39 @@ class ESewaPaymentHandler : ComponentActivity() {
     }
 
     /**
+     * ✅ Writes a document to the payments collection.
+     * Field name "method" = "Esewa" as required by the payments collection schema.
+     */
+    private fun recordPayment(
+        userId: String,
+        subscriptionId: String,
+        transactionId: String,
+        isExtension: Boolean
+    ) {
+        val paymentData = hashMapOf(
+            "userId"         to userId,
+            "subscriptionId" to subscriptionId,
+            "planId"         to planId,
+            "planName"       to planName,
+            "amount"         to planPrice.toInt(),
+            "method"         to "Esewa",
+            "transactionId"  to transactionId,
+            "type"           to if (isExtension) "extension" else "new",
+            "status"         to "success",
+            "createdAt"      to FieldValue.serverTimestamp()
+        )
+
+        db.collection("payments")
+            .add(paymentData)
+            .addOnSuccessListener { ref ->
+                Log.d("ESewaPayment", "Payment recorded: ${ref.id} | method=Esewa")
+            }
+            .addOnFailureListener { e ->
+                Log.e("ESewaPayment", "Failed to save payment record", e)
+            }
+    }
+
+    /**
      * Update user document to mark they have a subscription
      */
     private fun updateUserDocument(userId: String) {
@@ -335,14 +398,29 @@ class ESewaPaymentHandler : ComponentActivity() {
     }
 
     /**
-     * Update Dashboard stats (matches SubscriptionViewModel pattern)
+     * Update Dashboard stats — increments both activeSubs and totalRevenue
      */
     private fun updateSubscriptionStats() {
         val statsRef = db.collection("Dashboard_stats").document("YbIkiRVdxGQqvza8K85i")
         statsRef.update(
             mapOf(
-                "activeSubs" to FieldValue.increment(1),
-                "lastUpdated" to FieldValue.serverTimestamp()
+                "activeSubs"   to FieldValue.increment(1),
+                "totalRevenue" to FieldValue.increment(planPrice),
+                "lastUpdated"  to FieldValue.serverTimestamp()
+            )
+        )
+    }
+
+    /**
+     * Updates only totalRevenue for extensions.
+     * Does NOT increment activeSubs — the subscription already exists.
+     */
+    private fun updateRevenueForExtension() {
+        val statsRef = db.collection("Dashboard_stats").document("YbIkiRVdxGQqvza8K85i")
+        statsRef.update(
+            mapOf(
+                "totalRevenue" to FieldValue.increment(planPrice),
+                "lastUpdated"  to FieldValue.serverTimestamp()
             )
         )
     }

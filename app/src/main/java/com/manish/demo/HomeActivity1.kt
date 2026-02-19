@@ -14,6 +14,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.filled.LockOpen
+import com.manish.demo.utils.getResponsiveSizes
+import com.manish.demo.utils.getWindowSize
+import com.manish.demo.utils.WindowSize
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -1555,60 +1558,58 @@ fun UserStatCard(
     modifier: Modifier,
     title: String,
     value: String,
-    subtitle: String? = null, // ✅ Add subtitle parameter
+    subtitle: String? = null,
     icon: ImageVector,
     color: Color
 ) {
     val glassBg = Color.White.copy(alpha = 0.05f)
     val glassBorder = Color.White.copy(alpha = 0.1f)
+    val sizes = getResponsiveSizes()
 
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = glassBg),
         border = BorderStroke(1.dp, glassBorder),
-        shape = RoundedCornerShape(16.dp) // Slightly smaller rounding for a tighter look
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier
-                .padding(12.dp) // Reduced padding from 16.dp to 12.dp for smaller height
+                .padding(sizes.paddingSmall + 4.dp)
                 .fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier
-                    .size(28.dp) // Reduced icon box size from 32.dp
+                    .size(sizes.iconSmall + 12.dp)
                     .background(color.copy(0.1f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, null, Modifier.size(16.dp), color) // Slightly smaller icon
+                Icon(icon, null, Modifier.size(sizes.iconSmall), color)
             }
 
-            Spacer(Modifier.height(8.dp)) // Reduced spacer
+            Spacer(Modifier.height(sizes.paddingSmall))
 
-            // Value Text (e.g., "Inactive", "12")
             Text(
                 text = value,
                 color = Color.White,
-                fontSize = 16.sp, // Reduced from 20.sp to fit "Inactive" better
+                fontSize = sizes.subtitleSize,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Subtitle Text (e.g., "views")
             subtitle?.let {
                 Text(
                     text = it,
                     color = Color.White.copy(0.7f),
-                    fontSize = 12.sp, // Smaller size for subtitle
-                    modifier = Modifier.padding(top = 4.dp) // Slightly more padding
+                    fontSize = sizes.captionSize,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
 
-            // Title Text (e.g., "Subscription")
             Text(
                 text = title,
                 color = Color.White.copy(0.5f),
-                fontSize = 10.sp // Reduced slightly from 11.sp
+                fontSize = sizes.smallSize
             )
         }
     }
@@ -1621,22 +1622,27 @@ fun MovieSection(
     movies: List<MovieItem>,
     onMovieClick: (MovieItem) -> Unit
 ) {
+    val sizes = getResponsiveSizes()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = sizes.paddingSmall)
     ) {
         Text(
             text = title,
             color = Color.White,
-            fontSize = 20.sp,
+            fontSize = sizes.titleSize,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            modifier = Modifier.padding(
+                horizontal = sizes.paddingMedium,
+                vertical = sizes.paddingSmall
+            )
         )
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = sizes.paddingMedium),
+            horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall)
         ) {
             items(movies) { movie ->
                 NetflixMovieCard(
@@ -1653,10 +1659,12 @@ fun NetflixMovieCard(
     movie: MovieItem,
     onClick: () -> Unit
 ) {
+    val sizes = getResponsiveSizes()
+
     Card(
         modifier = Modifier
-            .width(140.dp)
-            .height(200.dp)
+            .width(sizes.movieCardWidth)
+            .height(sizes.movieCardHeight)
             .clickable { onClick() }
             .shadow(elevation = 8.dp, shape = RoundedCornerShape(8.dp)),
         shape = RoundedCornerShape(8.dp),
@@ -1679,7 +1687,7 @@ fun NetflixMovieCard(
                         ) {
                             CircularProgressIndicator(
                                 color = Color.White,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(sizes.iconMedium),
                                 strokeWidth = 2.dp
                             )
                         }
@@ -1695,7 +1703,7 @@ fun NetflixMovieCard(
                                 Icons.Default.Movie,
                                 contentDescription = "No Poster",
                                 tint = Color.LightGray,
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(sizes.iconLarge)
                             )
                         }
                     }
@@ -1711,7 +1719,7 @@ fun NetflixMovieCard(
                         Icons.Default.Movie,
                         contentDescription = "No Poster",
                         tint = Color.LightGray,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(sizes.iconLarge)
                     )
                 }
             }
@@ -1721,23 +1729,23 @@ fun NetflixMovieCard(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(6.dp)
+                        .padding(sizes.paddingTiny)
                         .clip(RoundedCornerShape(4.dp))
                         .background(Color.Black.copy(alpha = 0.7f))
-                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                        .padding(horizontal = sizes.paddingTiny, vertical = 3.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Star,
                             contentDescription = "Rating",
                             tint = Color.Yellow,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(sizes.captionSize.value.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             String.format(Locale.US, "%.1f", movie.rating),
                             color = Color.White,
-                            fontSize = 11.sp,
+                            fontSize = sizes.smallSize,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -1758,12 +1766,12 @@ fun NetflixMovieCard(
                             )
                         )
                     )
-                    .padding(8.dp)
+                    .padding(sizes.paddingSmall)
             ) {
                 Text(
                     text = movie.title,
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = sizes.captionSize,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1782,12 +1790,12 @@ fun UserFavoritesContent(
     val userId = FirebaseAuth.getInstance().currentUser?.uid
     var favorites by remember { mutableStateOf<List<MovieItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-
-    // ✅ Search state for favorites
     var searchQuery by remember { mutableStateOf("") }
+
     val emeraldGreen = Color(0xFF2ECC71)
     val glassBg = Color.White.copy(alpha = 0.05f)
     val glassBorder = Color.White.copy(alpha = 0.1f)
+    val sizes = getResponsiveSizes()
 
     LaunchedEffect(userId) {
         if (userId != null) {
@@ -1795,10 +1803,7 @@ fun UserFavoritesContent(
                 .collection("favorites")
                 .orderBy("addedAt", Query.Direction.DESCENDING)
                 .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        isLoading = false
-                        return@addSnapshotListener
-                    }
+                    if (e != null) { isLoading = false; return@addSnapshotListener }
                     if (snapshot != null) {
                         favorites = snapshot.documents.mapNotNull { doc ->
                             try {
@@ -1808,9 +1813,7 @@ fun UserFavoritesContent(
                                     poster = doc.getString("poster") ?: "",
                                     rating = (doc.get("rating") as? Number)?.toDouble() ?: 0.0
                                 )
-                            } catch (e: Exception) {
-                                null
-                            }
+                            } catch (e: Exception) { null }
                         }
                     }
                     isLoading = false
@@ -1820,26 +1823,17 @@ fun UserFavoritesContent(
         }
     }
 
-    // ✅ Filter favorites based on search query
-    val filteredFavorites = if (searchQuery.isEmpty()) {
-        favorites
-    } else {
-        favorites.filter { it.title.contains(searchQuery, ignoreCase = true) }
-    }
+    val filteredFavorites = if (searchQuery.isEmpty()) favorites
+    else favorites.filter { it.title.contains(searchQuery, ignoreCase = true) }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // ✅ Spacer for TopAppBar (Logo + MovieFlix)
-            // The TopAppBar in UserApp is transparent and overlays content, so we need padding
-
-
-            // ✅ Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 0.dp)
+                    .padding(horizontal = sizes.paddingMedium, vertical = 0.dp)
                     .background(glassBg, RoundedCornerShape(12.dp))
                     .border(1.dp, glassBorder, RoundedCornerShape(12.dp)),
                 placeholder = { Text("Search favorites...", color = Color.White.copy(0.5f)) },
@@ -1864,13 +1858,12 @@ fun UserFavoritesContent(
                 singleLine = true
             )
 
-            // ✅ Title "Your Favorites"
             Text(
-                text = "Your Favorites (${filteredFavorites.size})", // Changed text
-                fontSize = 20.sp, // Reduced font size (was 24.sp)
+                text = "Your Favorites (${filteredFavorites.size})",
+                fontSize = sizes.titleSize,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = sizes.paddingMedium, vertical = sizes.paddingSmall)
             )
 
             if (isLoading) {
@@ -1878,60 +1871,44 @@ fun UserFavoritesContent(
                     CircularProgressIndicator(color = emeraldGreen)
                 }
             } else if (favorites.isEmpty()) {
-                // Empty state (no favorites at all)
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.FavoriteBorder,
-                            null,
-                            tint = Color.White.copy(0.5f),
-                            modifier = Modifier.size(80.dp)
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            "No favorites yet",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Icon(Icons.Default.FavoriteBorder, null, tint = Color.White.copy(0.5f), modifier = Modifier.size(sizes.iconLarge + 32.dp))
+                        Spacer(Modifier.height(sizes.paddingMedium))
+                        Text("No favorites yet", fontSize = sizes.subtitleSize, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             } else if (filteredFavorites.isEmpty()) {
-                // Search result empty
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No matches found", color = Color.White.copy(0.6f))
+                    Text("No matches found", color = Color.White.copy(0.6f), fontSize = sizes.bodySize)
                 }
             } else {
-                // Grid
+                // ✅ FIXED: Adaptive grid instead of hardcoded 3 columns
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    contentPadding = PaddingValues(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    columns = GridCells.Adaptive(minSize = sizes.movieCardWidth),
+                    contentPadding = PaddingValues(sizes.paddingSmall),
+                    horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall),
+                    verticalArrangement = Arrangement.spacedBy(sizes.paddingMedium),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredFavorites) { movie ->
                         NetflixMovieCard(
                             movie = movie,
                             onClick = {
-                                // Fetch full details logic (kept same as before)
                                 db.collection("movies").document(movie.docId).get()
                                     .addOnSuccessListener { doc ->
                                         if (doc.exists()) {
                                             val full = MovieItem(
                                                 docId = doc.id,
-                                                tmdbId = (doc.get("tmdbId") as? Number)?.toInt()
-                                                    ?: 0,
+                                                tmdbId = (doc.get("tmdbId") as? Number)?.toInt() ?: 0,
                                                 title = doc.getString("title") ?: "",
                                                 description = doc.getString("description") ?: "",
                                                 poster = doc.getString("poster") ?: "",
                                                 backdrop = doc.getString("backdrop") ?: "",
                                                 streamUrl = doc.getString("streamUrl") ?: "",
                                                 trailerUrl = doc.getString("trailerUrl") ?: "",
-                                                genres = (doc.get("genres") as? List<*>)?.mapNotNull { it as? String }
-                                                    ?: emptyList(),
-                                                rating = (doc.get("rating") as? Number)?.toDouble()
-                                                    ?: 0.0
+                                                genres = (doc.get("genres") as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                                                rating = (doc.get("rating") as? Number)?.toDouble() ?: 0.0
                                             )
                                             onMovieClick(full)
                                         }
@@ -1961,12 +1938,14 @@ fun UserProfileContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val sizes = getResponsiveSizes()
+    val profileImageSize = sizes.posterWidth + 20.dp // 120dp / 150dp / 180dp across breakpoints
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(sizes.paddingMedium),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Profile Image Section
@@ -1977,14 +1956,10 @@ fun UserProfileContent(
                         bitmap = userImageBitmap.asImageBitmap(),
                         contentDescription = "Profile Picture",
                         modifier = Modifier
-                            .size(120.dp)
+                            .size(profileImageSize)
                             .clip(CircleShape)
                             .border(2.dp, Color.White, CircleShape)
-                            .clickable {
-                                if (!isUploadingImage) {
-                                    onShowImageDialog()
-                                }
-                            },
+                            .clickable { if (!isUploadingImage) onShowImageDialog() },
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -1992,12 +1967,8 @@ fun UserProfileContent(
                         imageVector = Icons.Default.AccountCircle,
                         contentDescription = "Default Profile",
                         modifier = Modifier
-                            .size(120.dp)
-                            .clickable {
-                                if (!isUploadingImage) {
-                                    onShowImageDialog()
-                                }
-                            },
+                            .size(profileImageSize)
+                            .clickable { if (!isUploadingImage) onShowImageDialog() },
                         tint = Color.LightGray
                     )
                 }
@@ -2007,17 +1978,10 @@ fun UserProfileContent(
                     contentDescription = "Edit Photo",
                     tint = if (isUploadingImage) Color.Gray else Color.White,
                     modifier = Modifier
-                        .size(30.dp)
+                        .size(sizes.iconMedium + 6.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (isUploadingImage) Color.DarkGray.copy(alpha = 0.5f)
-                            else Color.Black.copy(alpha = 0.5f)
-                        )
-                        .clickable {
-                            if (!isUploadingImage) {
-                                onEditImageClicked()
-                            }
-                        }
+                        .background(if (isUploadingImage) Color.DarkGray.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.5f))
+                        .clickable { if (!isUploadingImage) onEditImageClicked() }
                         .padding(4.dp)
                 )
             }
@@ -2025,44 +1989,33 @@ fun UserProfileContent(
             if (isUploadingImage) {
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(profileImageSize)
                         .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
                         color = Color.White,
-                        modifier = Modifier.size(30.dp),
+                        modifier = Modifier.size(sizes.iconMedium + 6.dp),
                         strokeWidth = 3.dp
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(sizes.paddingMedium))
 
-        Text(
-            text = userName,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-        Text(
-            text = "MovieFlix User",
-            fontSize = 14.sp,
-            color = Color.LightGray
-        )
+        Text(text = userName, fontSize = sizes.titleSize, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(text = "MovieFlix User", fontSize = sizes.bodySize, color = Color.LightGray)
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(sizes.paddingLarge))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(
-                containerColor = Color.White.copy(alpha = 0.1f)
-            )
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(sizes.paddingMedium)) {
                 InfoRow(icon = Icons.Default.Email, label = "Email", text = userEmail)
                 HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                 InfoRow(icon = Icons.Default.Phone, label = "Phone", text = userPhone)
@@ -2073,42 +2026,30 @@ fun UserProfileContent(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            if (!isUploadingImage) {
-                                onPasswordChangeClicked()
-                            }
-                        }
+                        .clickable { if (!isUploadingImage) onPasswordChangeClicked() }
                         .padding(vertical = 8.dp)
                 ) {
                     Icon(
                         Icons.Default.Lock,
                         contentDescription = "Password",
                         tint = if (isUploadingImage) Color.Gray else Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(sizes.iconMedium)
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(sizes.paddingMedium))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Password",
-                            color = if (isUploadingImage) Color.Gray else Color.White
-                        )
+                        Text("Password", color = if (isUploadingImage) Color.Gray else Color.White, fontSize = sizes.bodySize)
                         Text(
                             "Last updated: $passwordLastUpdated",
-                            fontSize = 12.sp,
+                            fontSize = sizes.captionSize,
                             color = if (isUploadingImage) Color.DarkGray else Color.LightGray
                         )
                     }
-                    Icon(
-                        Icons.Default.ChevronRight,
-                        contentDescription = "Change Password",
-                        tint = if (isUploadingImage) Color.Gray else Color.White
-                    )
+                    Icon(Icons.Default.ChevronRight, contentDescription = "Change Password", tint = if (isUploadingImage) Color.Gray else Color.White)
                 }
             }
         }
 
-
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(sizes.paddingLarge))
 
         Button(
             onClick = {
@@ -2123,22 +2064,14 @@ fun UserProfileContent(
             enabled = !isUploadingImage,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(sizes.paddingLarge * 2),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Red.copy(alpha = if (isUploadingImage) 0.3f else 0.7f)
             )
         ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ExitToApp,
-                contentDescription = "Logout",
-                tint = if (isUploadingImage) Color.LightGray else Color.White
-            )
+            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout", tint = if (isUploadingImage) Color.LightGray else Color.White)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                "Logout",
-                color = if (isUploadingImage) Color.LightGray else Color.White,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Logout", color = if (isUploadingImage) Color.LightGray else Color.White, fontWeight = FontWeight.Bold, fontSize = sizes.bodySize)
         }
     }
 }
@@ -3291,6 +3224,8 @@ fun MovieDetailScreen(
         }
     }
 
+    val sizes = getResponsiveSizes()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -3381,15 +3316,15 @@ fun MovieDetailScreen(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
-                            .padding(20.dp),
+                            .padding(sizes.paddingMedium),
                         verticalAlignment = Alignment.Bottom
                     ) {
                         // ✅ Movie Poster on the left (Netflix style)
                         if (movie.poster.isNotEmpty()) {
                             Card(
                                 modifier = Modifier
-                                    .width(100.dp)
-                                    .height(140.dp),
+                                    .width(sizes.posterWidth)
+                                    .height(sizes.posterHeight),
                                 shape = RoundedCornerShape(8.dp),
                                 elevation = CardDefaults.cardElevation(8.dp)
                             ) {
@@ -3407,7 +3342,7 @@ fun MovieDetailScreen(
                                         ) {
                                             CircularProgressIndicator(
                                                 color = emeraldGreen,
-                                                modifier = Modifier.size(24.dp),
+                                                modifier = Modifier.size(sizes.iconMedium),
                                                 strokeWidth = 2.dp
                                             )
                                         }
@@ -3423,33 +3358,33 @@ fun MovieDetailScreen(
                                                 Icons.Default.Movie,
                                                 contentDescription = "No Poster",
                                                 tint = Color.LightGray,
-                                                modifier = Modifier.size(40.dp)
+                                                modifier = Modifier.size(sizes.iconLarge)
                                             )
                                         }
                                     }
                                 )
                             }
 
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(sizes.paddingMedium))
                         }
 
                         // Movie Title and Rating on the right
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(bottom = 8.dp)
+                                .padding(bottom = sizes.paddingSmall)
                         ) {
                             Text(
                                 text = movie.title,
                                 color = Color.White,
-                                fontSize = 24.sp,
+                                fontSize = sizes.titleSize,
                                 fontWeight = FontWeight.Bold,
-                                lineHeight = 28.sp,
+                                lineHeight = (sizes.titleSize.value + 4).sp,
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis
                             )
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(sizes.paddingSmall))
 
                             // Rating
                             if (movie.rating > 0) {
@@ -3458,19 +3393,19 @@ fun MovieDetailScreen(
                                         Icons.Default.Star,
                                         contentDescription = "Rating",
                                         tint = Color.Yellow,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(sizes.iconSmall)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         String.format(Locale.US, "%.1f", movie.rating),
                                         color = Color.White,
-                                        fontSize = 15.sp,
+                                        fontSize = sizes.bodySize,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         " / 10",
                                         color = Color.White.copy(0.7f),
-                                        fontSize = 13.sp
+                                        fontSize = sizes.captionSize
                                     )
                                 }
                             }
@@ -3483,7 +3418,7 @@ fun MovieDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp)
+                        .padding(sizes.paddingMedium)
                 ) {
                     // Play Button
                     Button(
@@ -4256,7 +4191,7 @@ fun WebViewPlayerScreen(
                             request: WebResourceRequest?
                         ): Boolean {
                             val url = request?.url.toString()
-                            return if (url.contains("vidsrc") || url.contains("embed") || url == movie.streamUrl) {
+                            return if (url.contains("vidsrc") || url.contains("vsembed") || url.contains("embed") || url == movie.streamUrl) {
                                 false
                             } else {
                                 true // Block everything else
@@ -4375,8 +4310,11 @@ fun WebViewPlayerScreen(
                     }
 
                     val headers = HashMap<String, String>()
-                    headers["Referer"] = "https://vidsrc.to/"
-                    loadUrl(movie.streamUrl, headers)
+                    headers["Referer"] = "https://vsembed.ru/"
+// Replace vidsrc.to with vsembed.ru in the URL
+                    val modifiedUrl = movie.streamUrl.replace("vidsrc.to", "vsembed.ru")
+                    loadUrl(modifiedUrl, headers)
+
                 }
             },
             modifier = Modifier.fillMaxSize()
