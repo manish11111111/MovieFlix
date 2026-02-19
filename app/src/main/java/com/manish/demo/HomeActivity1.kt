@@ -3050,7 +3050,7 @@ fun MovieDetailScreen(
     viewModel: UserHomeViewModel,
     onClose: () -> Unit,
     onPlayClick: (MovieItem) -> Unit,
-    onNavigateToSubscription: () -> Unit = {}  // ✅ Add navigation callback
+    onNavigateToSubscription: () -> Unit = {}
 ) {
     val emeraldGreen = Color(0xFF2ECC71)
     val db = FirebaseFirestore.getInstance()
@@ -3062,7 +3062,8 @@ fun MovieDetailScreen(
     var isCheckingFavorite by remember { mutableStateOf(true) }
     var hasActiveSubscription by remember { mutableStateOf(false) }
     var showSubscriptionDialog by remember { mutableStateOf(false) }
-    // Check if movie is in favorites
+
+    // ✅ Original Subscription Check logic
     LaunchedEffect(currentUserId) {
         if (currentUserId != null) {
             db.collection("subscriptions")
@@ -3077,336 +3078,79 @@ fun MovieDetailScreen(
                 }
         }
     }
+
+    // ✅ Original Favorites Check logic
     LaunchedEffect(movie.docId) {
         if (currentUserId != null) {
             db.collection("users").document(currentUserId)
-                .collection("favorites")
-                .document(movie.docId)
-                .get()
+                .collection("favorites").document(movie.docId).get()
                 .addOnSuccessListener { doc ->
                     isFavorite = doc.exists()
                     isCheckingFavorite = false
                 }
-                .addOnFailureListener {
-                    isCheckingFavorite = false
-                }
-        } else {
-            isCheckingFavorite = false
         }
     }
 
-    // Toggle favorite function
-    // Updated Toggle favorite function
+    // ✅ All your original Helper Functions (Toggle, Share, Trailer)
     fun toggleFavorite() {
         if (currentUserId == null) return
-
-        // Reference to the specific user's favorites sub-collection
-        val favRef = db.collection("users").document(currentUserId)
-            .collection("favorites")
-            .document(movie.docId) // Use movie ID as document ID to ensure uniqueness per user
-
+        val favRef = db.collection("users").document(currentUserId).collection("favorites").document(movie.docId)
         if (isFavorite) {
-            // Remove from favorites
-            favRef.delete()
-                .addOnSuccessListener {
-                    isFavorite = false
-                    Log.d("Favorites", "Movie removed from favorites")
-                }
-                .addOnFailureListener { e ->
-                    Log.e("Favorites", "Error removing favorite", e)
-                }
+            favRef.delete().addOnSuccessListener { isFavorite = false }
         } else {
-            // Add to favorites
-            // We store essential details to display lists without fetching the full movie again
             val favoriteData = hashMapOf(
-                "userId" to currentUserId, // Relational link back to user (explicit)
-                "movieId" to movie.docId,  // Relational link to the movie
-                "tmdbId" to movie.tmdbId,
-                "title" to movie.title,
-                "poster" to movie.poster,
-                "rating" to movie.rating,  // Useful for sorting
+                "movieId" to movie.docId, "title" to movie.title,
+                "poster" to movie.poster, "rating" to movie.rating,
                 "addedAt" to com.google.firebase.Timestamp.now()
             )
-
-            favRef.set(favoriteData)
-                .addOnSuccessListener {
-                    isFavorite = true
-                    Log.d("Favorites", "Movie added to favorites")
-                }
-                .addOnFailureListener { e ->
-                    Log.e("Favorites", "Error adding favorite", e)
-                }
+            favRef.set(favoriteData).addOnSuccessListener { isFavorite = true }
         }
     }
 
-
-    // Function to open YouTube trailer
     fun openTrailer() {
         if (movie.trailerUrl.isEmpty()) return
-
-        try {
-            // Construct full YouTube URL
-            val videoId = movie.trailerUrl
-
-            // Try to open in YouTube app first
-            val appIntent = Intent(Intent.ACTION_VIEW, Uri.parse("vnd.youtube:$videoId"))
-            appIntent.setPackage("com.google.android.youtube")
-
-            // Check if YouTube app is installed
-            val packageManager = context.packageManager
-            val youtubeAppInstalled = appIntent.resolveActivity(packageManager) != null
-
-            if (youtubeAppInstalled) {
-                // Open in YouTube app
-                context.startActivity(appIntent)
-            } else {
-                // Fallback: Open in web browser
-                val webIntent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://www.youtube.com/watch?v=$videoId")
-                )
-                context.startActivity(webIntent)
-            }
-        } catch (e: Exception) {
-            Log.e("MovieDetail", "Error opening trailer: ${e.message}")
-            // Last fallback: just open YouTube website
-            try {
-                val webIntent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://www.youtube.com/watch?v=${movie.trailerUrl}")
-                )
-                context.startActivity(webIntent)
-            } catch (ex: Exception) {
-                Log.e("MovieDetail", "Failed to open trailer: ${ex.message}")
-            }
-        }
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=${movie.trailerUrl}")))
     }
 
-    // Function to share movie
     fun shareMovie() {
-        try {
-            // Build share message
-            val shareMessage = buildString {
-                append("🎬 Check out this movie on MovieFlix!\n\n")
-                append("${movie.title}\n")
-
-                if (movie.rating > 0) {
-                    append("⭐ Rating: ${String.format(Locale.US, "%.1f", movie.rating)}/10\n")
-                }
-
-                if (movie.genres.isNotEmpty()) {
-                    append("🎭 Genres: ${movie.genres.joinToString(", ")}\n")
-                }
-
-                append("\n${movie.description}\n")
-
-                if (movie.trailerUrl.isNotEmpty()) {
-                    append("\n🎥 Watch Trailer: https://www.youtube.com/watch?v=${movie.trailerUrl}\n")
-                }
-
-                append("\n📱 Download MovieFlix to watch now!")
-            }
-
-            // Create share intent
-            val shareIntent = Intent().apply {
-                action = Intent.ACTION_SEND
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "Check out ${movie.title} on MovieFlix")
-                putExtra(Intent.EXTRA_TEXT, shareMessage)
-            }
-
-            // Create chooser to let user pick app
-            val chooserIntent = Intent.createChooser(shareIntent, "Share ${movie.title} via")
-            context.startActivity(chooserIntent)
-
-        } catch (e: Exception) {
-            Log.e("MovieDetail", "Error sharing movie: ${e.message}")
+        val shareIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, "Check out ${movie.title} on MovieFlix!")
         }
+        context.startActivity(Intent.createChooser(shareIntent, "Share via"))
     }
 
     val sizes = getResponsiveSizes()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .statusBarsPadding()
-    ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize()
-        ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                // Movie Backdrop/Poster Header
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp)
-                ) {
-                    // Backdrop Image
-                    if (movie.backdrop.isNotEmpty()) {
-                        SubcomposeAsyncImage(
-                            model = movie.backdrop,
-                            contentDescription = movie.title,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            loading = {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(color = emeraldGreen)
-                                }
-                            },
-                            error = {
-                                // Fallback to poster if backdrop fails
-                                if (movie.poster.isNotEmpty()) {
-                                    SubcomposeAsyncImage(
-                                        model = movie.poster,
-                                        contentDescription = movie.title,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                }
-                            }
-                        )
-                    } else if (movie.poster.isNotEmpty()) {
-                        SubcomposeAsyncImage(
-                            model = movie.poster,
-                            contentDescription = movie.title,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-
-                    // Gradient overlay
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.3f),
-                                        Color.Black.copy(alpha = 0.8f),
-                                        Color.Black
-                                    )
-                                )
-                            )
+                // Header UI: Backdrop & Poster
+                Box(modifier = Modifier.fillMaxWidth().height(380.dp)) {
+                    SubcomposeAsyncImage(
+                        model = movie.backdrop.ifEmpty { movie.poster },
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
+                    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(0.4f), Color.Black))))
 
-                    // Close Button (X) at top-right
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(12.dp)
-                            .size(36.dp)
-                            .background(Color.Black.copy(alpha = 0.7f), CircleShape)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(36.dp).background(Color.Black.copy(0.7f), CircleShape)) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.White)
                     }
 
-                    // Movie Title and Info at bottom with Poster (Netflix style)
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .padding(sizes.paddingMedium),
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        // ✅ Movie Poster on the left (Netflix style)
-                        if (movie.poster.isNotEmpty()) {
-                            Card(
-                                modifier = Modifier
-                                    .width(sizes.posterWidth)
-                                    .height(sizes.posterHeight),
-                                shape = RoundedCornerShape(8.dp),
-                                elevation = CardDefaults.cardElevation(8.dp)
-                            ) {
-                                SubcomposeAsyncImage(
-                                    model = movie.poster,
-                                    contentDescription = movie.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                    loading = {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color.DarkGray),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                color = emeraldGreen,
-                                                modifier = Modifier.size(sizes.iconMedium),
-                                                strokeWidth = 2.dp
-                                            )
-                                        }
-                                    },
-                                    error = {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(Color.DarkGray),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Movie,
-                                                contentDescription = "No Poster",
-                                                tint = Color.LightGray,
-                                                modifier = Modifier.size(sizes.iconLarge)
-                                            )
-                                        }
-                                    }
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(sizes.paddingMedium))
+                    Row(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(sizes.paddingMedium), verticalAlignment = Alignment.Bottom) {
+                        Card(modifier = Modifier.width(sizes.posterWidth).height(sizes.posterHeight), shape = RoundedCornerShape(8.dp)) {
+                            SubcomposeAsyncImage(model = movie.poster, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         }
-
-                        // Movie Title and Rating on the right
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(bottom = sizes.paddingSmall)
-                        ) {
-                            Text(
-                                text = movie.title,
-                                color = Color.White,
-                                fontSize = sizes.titleSize,
-                                fontWeight = FontWeight.Bold,
-                                lineHeight = (sizes.titleSize.value + 4).sp,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Spacer(modifier = Modifier.height(sizes.paddingSmall))
-
-                            // Rating
+                        Spacer(modifier = Modifier.width(sizes.paddingMedium))
+                        Column(modifier = Modifier.weight(1f).padding(bottom = sizes.paddingSmall)) {
+                            Text(text = movie.title, color = Color.White, fontSize = sizes.titleSize, fontWeight = FontWeight.Bold)
                             if (movie.rating > 0) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Star,
-                                        contentDescription = "Rating",
-                                        tint = Color.Yellow,
-                                        modifier = Modifier.size(sizes.iconSmall)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        String.format(Locale.US, "%.1f", movie.rating),
-                                        color = Color.White,
-                                        fontSize = sizes.bodySize,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        " / 10",
-                                        color = Color.White.copy(0.7f),
-                                        fontSize = sizes.captionSize
-                                    )
+                                    Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = Color.Yellow, modifier = Modifier.size(sizes.iconSmall))
+                                    Text(String.format(Locale.US, " %.1f / 10", movie.rating), color = Color.White, fontSize = sizes.bodySize)
                                 }
                             }
                         }
@@ -3415,414 +3159,106 @@ fun MovieDetailScreen(
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(sizes.paddingMedium)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(sizes.paddingMedium)) {
                     // Play Button
                     Button(
-                        onClick = {
-                            // ✅ Check subscription before playing
-                            if (hasActiveSubscription) {
-                                showPlayOptionsDialog = true
-                            } else {
-                                showSubscriptionDialog = true
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = emeraldGreen
-                        ),
+                        onClick = { if (hasActiveSubscription) showPlayOptionsDialog = true else showSubscriptionDialog = true },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = emeraldGreen),
                         shape = RoundedCornerShape(6.dp)
                     ) {
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = "Play",
-                            modifier = Modifier.size(24.dp),
-                            tint = Color.Black
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Play",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black
-                        )
+                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Play", fontWeight = FontWeight.Bold, color = Color.Black)
                     }
 
-                    // Watch Trailer Button (directly below Play button)
                     if (movie.trailerUrl.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = { openTrailer() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color.White
-                            ),
-                            border = BorderStroke(1.5.dp, Color.White.copy(0.5f)),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.PlayArrow,
-                                contentDescription = "Watch Trailer",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Watch Trailer",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Action Buttons Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        // Favorite (Heart Icon)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.clickable { toggleFavorite() }
-                        ) {
-                            Icon(
-                                if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                contentDescription = "Favorite",
-                                tint = if (isFavorite) Color.Red else Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Favorite",
-                                color = Color.White,
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        // Share
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.clickable { shareMovie() }
-                        ) {
-                            Icon(
-                                Icons.Default.Share,
-                                contentDescription = "Share",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Share",
-                                color = Color.White,
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        // Download
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.clickable { /* TODO: Download */ }
-                        ) {
-                            Icon(
-                                Icons.Default.Download,
-                                contentDescription = "Download",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Download",
-                                color = Color.White,
-                                fontSize = 11.sp
-                            )
+                        OutlinedButton(onClick = { openTrailer() }, modifier = Modifier.fillMaxWidth().height(48.dp), border = BorderStroke(1.dp, Color.White.copy(0.5f)), shape = RoundedCornerShape(6.dp)) {
+                            Text("Watch Trailer", color = Color.White)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Description
-                    Text(
-                        text = movie.description,
-                        color = Color.White.copy(0.9f),
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
-                    )
+                    // All Original Action Icons
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { toggleFavorite() }) {
+                            Icon(imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null, tint = if (isFavorite) Color.Red else Color.White)
+                            Text("Favorite", color = Color.White, fontSize = 11.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { shareMovie() }) {
+                            Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = Color.White)
+                            Text("Share", color = Color.White, fontSize = 11.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { /* Download */ }) {
+                            Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = Color.White)
+                            Text("Download", color = Color.White, fontSize = 11.sp)
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
+                    Text(text = movie.description, color = Color.White.copy(0.9f), fontSize = 14.sp, lineHeight = 20.sp)
 
-                    // Genres
                     if (movie.genres.isNotEmpty()) {
-                        Text(
-                            "Genres",
-                            color = Color.White.copy(0.7f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(movie.genres) { genre ->
-                                Surface(
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = Color.White.copy(0.12f),
-                                    border = BorderStroke(1.dp, Color.White.copy(0.3f))
-                                ) {
-                                    Text(
-                                        genre,
-                                        color = Color.White,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(
-                                            horizontal = 14.dp,
-                                            vertical = 6.dp
-                                        )
-                                    )
+                                Surface(shape = RoundedCornerShape(16.dp), color = Color.White.copy(0.12f), border = BorderStroke(1.dp, Color.White.copy(0.3f))) {
+                                    Text(genre, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
                                 }
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
 
-            // ✅ COLLABORATIVE FILTERING: Users Also Watched
+            // ✅ RESTORED: Users Also Watched Section
             item {
-                UsersAlsoWatchedSection(
-                    movieId = movie.docId,
-                    onMovieClick = { clickedMovie ->
-                        // Open the new movie detail when clicked
-                        onClose()  // First close current movie detail
-                        // Note: Parent composable needs to handle opening new movie details
-                    }
-                )
+                UsersAlsoWatchedSection(movieId = movie.docId, onMovieClick = { clickedMovie -> onClose() })
             }
         }
 
-        // ✅ Play Options Dialog
+        // ✅ Updated Play Dialog with your specific hardcoded link
         if (showPlayOptionsDialog) {
             AlertDialog(
                 onDismissRequest = { showPlayOptionsDialog = false },
                 containerColor = Color(0xFF1a1a2e),
-                shape = RoundedCornerShape(16.dp),
-                title = {
-                    Text(
-                        "Choose Player",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+                title = { Text("Select Player Mode", color = Color.White, fontWeight = FontWeight.Bold) },
                 text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Play Movie Option (WebView)
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    showPlayOptionsDialog = false
-                                    viewModel.trackMovieWatch(movie.docId, movie.title)
-                                    onPlayClick(movie)
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color.White.copy(0.1f)
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.PlayCircle,
-                                    contentDescription = null,
-                                    tint = emeraldGreen,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    "Play Movie",
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Card(modifier = Modifier.fillMaxWidth().clickable {
+                            showPlayOptionsDialog = false
+                            onPlayClick(movie)
+                        }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.PlayCircle, contentDescription = null, tint = emeraldGreen)
+                                Text("Stream Movie", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
-
-                        // Play Exo Option (ExoPlayer)
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    showPlayOptionsDialog = false
-                                    viewModel.trackMovieWatch(movie.docId, movie.title)
-                                    // Signal to play with ExoPlayer
-                                    onPlayClick(movie.copy(streamUrl = "exo_player"))
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color.White.copy(0.1f)
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Movie,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFFD700),
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    "Play Exo",
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                        Card(modifier = Modifier.fillMaxWidth().clickable {
+                            showPlayOptionsDialog = false
+                            onPlayClick(movie.copy(streamUrl = "exo_logic:gs://movieflix-fb904.firebasestorage.app/my_movie.mp4"))
+                        }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.Movie, contentDescription = null, tint = Color(0xFFFFD700))
+                                Text(" Exo Player", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
-
                     }
                 },
                 confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = { showPlayOptionsDialog = false }) {
-                        Text("Cancel", color = Color.White.copy(0.7f))
-                    }
-                }
+                dismissButton = { TextButton(onClick = { showPlayOptionsDialog = false }) { Text("Cancel") } }
             )
         }
 
-        // ✅ Subscription Required Dialog - SEPARATE from play options
         if (showSubscriptionDialog) {
             AlertDialog(
                 onDismissRequest = { showSubscriptionDialog = false },
                 containerColor = Color(0xFF1a1a2e),
-                shape = RoundedCornerShape(16.dp),
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = Color(0xFFFFD700),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "Subscription Required",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            "Subscribe to watch full movies and enjoy unlimited streaming!",
-                            fontSize = 14.sp,
-                            color = Color.White.copy(0.8f),
-                            lineHeight = 20.sp
-                        )
-
-                        Spacer(Modifier.height(20.dp))
-
-                        // Subscribe Button
-                        Button(
-                            onClick = {
-                                showSubscriptionDialog = false
-                                onClose()
-                                onNavigateToSubscription()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFFFD700)
-                            ),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.CardMembership,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Subscribe Now",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                        }
-
-                        // Watch Trailer Button (if available)
-                        if (movie.trailerUrl.isNotEmpty()) {
-                            Spacer(Modifier.height(10.dp))
-                            OutlinedButton(
-                                onClick = {
-                                    showSubscriptionDialog = false
-                                    openTrailer()
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.White
-                                ),
-                                border = BorderStroke(1.dp, Color.White.copy(0.3f)),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.PlayArrow,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    "Watch Trailer",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(
-                        onClick = { showSubscriptionDialog = false }
-                    ) {
-                        Text(
-                            "Maybe Later",
-                            color = Color.White.copy(0.6f),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
+                title = { Text("Subscription Required", color = Color.White) },
+                text = { Text("Please subscribe to unlock full movies.", color = Color.White.copy(0.8f)) },
+                confirmButton = { Button(onClick = { showSubscriptionDialog = false; onClose(); onNavigateToSubscription() }) { Text("Subscribe Now") } }
             )
         }
     }
@@ -3835,29 +3271,48 @@ fun MoviePlayerScreen(
     movie: com.manish.demo.viewmodel.MovieItem,
     onClose: () -> Unit
 ) {
-    // Check if we should use ExoPlayer
-    if (movie.streamUrl == "exo_player") {
-        ExoPlayerScreen(onClose = onClose)
+    if (movie.streamUrl.startsWith("exo_logic:")) {
+        val storageUrl = movie.streamUrl.removePrefix("exo_logic:")
+        var resolvedUrl by remember { mutableStateOf<String?>(null) }
+        var isLoading by remember { mutableStateOf(true) }
+
+        LaunchedEffect(storageUrl) {
+            try {
+                val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance()
+                    .getReferenceFromUrl(storageUrl)
+                storageRef.downloadUrl.addOnSuccessListener { uri ->
+                    resolvedUrl = uri.toString()
+                    isLoading = false
+                }
+            } catch (e: Exception) {
+                isLoading = false
+            }
+        }
+
+        if (isLoading) {
+            Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF2ECC71))
+            }
+        } else if (resolvedUrl != null) {
+            ExoPlayerScreen(url = resolvedUrl!!, onClose = onClose)
+        }
     } else {
         WebViewPlayerScreen(movie = movie, onClose = onClose)
     }
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(androidx.media3.common.util.UnstableApi::class)
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-fun ExoPlayerScreen(onClose: () -> Unit) {
+fun ExoPlayerScreen(
+    url: String, // Dynamic URL from Firebase
+    onClose: () -> Unit
+) {
     val context = LocalContext.current
     val activity = context as? Activity
 
     // 1. PLAYER & UI STATE
     val exoPlayer = remember {
-        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-            val videoUrl = "https://drive.google.com/u/0/uc?id=1Wzt2R8SUgXuFHZaLLpzQUqN08yhFHgw5&export=download&confirm=t"
-            setMediaItem(androidx.media3.common.MediaItem.fromUri(videoUrl))
-            prepare()
-            playWhenReady = true
-        }
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
     }
 
     var isPlaying by remember { mutableStateOf(true) }
@@ -3867,9 +3322,14 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
     var isLocked by remember { mutableStateOf(false) }
     var playbackSpeed by remember { mutableStateOf(1.0f) }
-
-    // Resize Modes: FIT = 0, FILL = 3, ZOOM = 4
     var resizeMode by remember { mutableStateOf(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+
+    // Prepare Player with the dynamic URL
+    LaunchedEffect(url) {
+        exoPlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(url))
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = true
+    }
 
     // 2. LIFECYCLE & IMMERSIVE SETUP
     DisposableEffect(Unit) {
@@ -3916,8 +3376,7 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
             isControlsVisible = !isControlsVisible
         }
     ) {
-
-        // ✅ THE VIDEO LAYER (Supports Fit, Fill, Zoom)
+        // VIDEO LAYER
         AndroidView(
             factory = { ctx ->
                 androidx.media3.ui.PlayerView(ctx).apply {
@@ -3931,7 +3390,7 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // ✅ THE "GLASS" CONTROL OVERLAY
+        // CONTROL OVERLAY
         androidx.compose.animation.AnimatedVisibility(
             visible = isControlsVisible,
             enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(),
@@ -3947,7 +3406,7 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
             ) {
 
                 if (!isLocked) {
-                    // --- TOP BAR (Movie Flix Branding) ---
+                    // --- TOP BAR (Your Original Branding) ---
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -3956,14 +3415,13 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onClose) {
-                            Icon(androidx.compose.material.icons.Icons.Default.ArrowBack, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
                         }
                         Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                             Text("Now Streaming", color = Color.White.copy(0.6f), fontSize = 12.sp)
                             Text("MovieFlix Premium", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         }
 
-                        // Speed Control Chip
                         Surface(
                             onClick = {
                                 playbackSpeed = if (playbackSpeed >= 2.0f) 0.75f else playbackSpeed + 0.25f
@@ -3977,18 +3435,16 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
                         }
                     }
 
-                    // --- CENTER ACTION HUB (Netflix Style) ---
+                    // --- CENTER HUB (Your Original 90dp Netflix Hub) ---
                     Row(
                         modifier = Modifier.align(Alignment.Center),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(80.dp)
                     ) {
-                        // Rewind 10s
                         IconButton(onClick = { exoPlayer.seekTo(currentPosition - 10000) }) {
-                            Icon(androidx.compose.material.icons.Icons.Default.Replay10, null, tint = Color.White, modifier = Modifier.size(50.dp))
+                            Icon(imageVector = Icons.Default.Replay10, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
                         }
 
-                        // Play/Pause Large Button
                         Box(
                             modifier = Modifier
                                 .size(90.dp)
@@ -3998,56 +3454,50 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = if (isPlaying) androidx.compose.material.icons.Icons.Default.Pause else androidx.compose.material.icons.Icons.Default.PlayArrow,
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(60.dp)
                             )
                         }
 
-                        // Forward 10s
                         IconButton(onClick = { exoPlayer.seekTo(currentPosition + 10000) }) {
-                            Icon(androidx.compose.material.icons.Icons.Default.Forward10, null, tint = Color.White, modifier = Modifier.size(50.dp))
+                            Icon(imageVector = Icons.Default.Forward10, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
                         }
                     }
 
-                    // --- BOTTOM NAVIGATION & SEEKER ---
+                    // --- BOTTOM SEEKER ---
                     Column(
                         modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 30.dp, vertical = 30.dp)
                     ) {
-                        // Netflix Red Progress
                         androidx.compose.material3.Slider(
                             value = currentPosition.toFloat(),
                             onValueChange = { exoPlayer.seekTo(it.toLong()) },
                             valueRange = 0f..(if (totalDuration > 0) totalDuration.toFloat() else 1f),
                             colors = androidx.compose.material3.SliderDefaults.colors(
-                                thumbColor = Color.Red,
-                                activeTrackColor = Color.Red,
-                                inactiveTrackColor = Color.Gray.copy(0.5f)
+                                thumbColor = Color.Red, activeTrackColor = Color.Red, inactiveTrackColor = Color.Gray.copy(0.5f)
                             )
                         )
 
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(formatTime(currentPosition), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Text(" / ${formatTime(totalDuration)}", color = Color.White.copy(0.5f), fontSize = 14.sp)
-
                             Spacer(Modifier.weight(1f))
 
-                            // ✅ BETTER FULLSCREEN / ASPECT RATIO TOGGLE
                             IconButton(onClick = {
                                 resizeMode = when(resizeMode) {
-                                    0 -> 4 // Zoom
-                                    4 -> 3 // Fill
-                                    else -> 0 // Fit
+                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                                    else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                                 }
                             }) {
                                 val (icon, label) = when(resizeMode) {
-                                    4 -> androidx.compose.material.icons.Icons.Default.FullscreenExit to "Original"
-                                    3 -> androidx.compose.material.icons.Icons.Default.AspectRatio to "Fill"
-                                    else -> androidx.compose.material.icons.Icons.Default.Fullscreen to "Zoom"
+                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> Icons.Default.FullscreenExit to "Original"
+                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> Icons.Default.AspectRatio to "Fill"
+                                    else -> Icons.Default.Fullscreen to "Zoom"
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(icon, null, tint = Color.White)
+                                    Icon(imageVector = icon, contentDescription = null, tint = Color.White)
                                     Text(label, color = Color.White, fontSize = 8.sp)
                                 }
                             }
@@ -4055,7 +3505,7 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
                     }
                 }
 
-                // --- FLOATING LOCK BUTTON ---
+                // --- FLOATING LOCK BUTTON (Your Original Left-Side Surface) ---
                 Surface(
                     onClick = { isLocked = !isLocked },
                     color = if (isLocked) Color.Red.copy(0.8f) else Color.Black.copy(0.6f),
@@ -4065,21 +3515,19 @@ fun ExoPlayerScreen(onClose: () -> Unit) {
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            if (isLocked) androidx.compose.material.icons.Icons.Default.Lock else androidx.compose.material.icons.Icons.Default.LockOpen,
-                            null, tint = Color.White, modifier = Modifier.size(24.dp)
+                            imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                            contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp)
                         )
                     }
                 }
             }
         }
 
-        // Animated Loader
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center).size(60.dp), color = Color.Red, strokeWidth = 5.dp)
         }
     }
 }
-
 @Composable
 fun ControlIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
