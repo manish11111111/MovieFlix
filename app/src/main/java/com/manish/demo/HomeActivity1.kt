@@ -1,5 +1,66 @@
 package com.manish.demo
 
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
+import android.util.TypedValue
+import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Check
+import android.view.WindowManager
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.ui.graphics.graphicsLayer
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.draw.rotate
+import android.media.AudioManager
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import android.content.Context
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -1051,12 +1112,15 @@ fun UserApp(
         }
 
         // Overlays
+        // Find this block inside UserApp
         selectedMovie?.let { movie ->
             MovieDetailScreen(
                 movie = movie,
                 viewModel = sharedViewModel,
                 onClose = { selectedMovie = null },
                 onPlayClick = { playingMovie = it },
+                // ✅ ADD THIS LINE:
+                onMovieClick = { selectedMovie = it },
                 onNavigateToSubscription = {
                     currentDestination = AppDestinations.SUBSCRIPTION
                 }
@@ -3050,6 +3114,7 @@ fun MovieDetailScreen(
     viewModel: UserHomeViewModel,
     onClose: () -> Unit,
     onPlayClick: (MovieItem) -> Unit,
+    onMovieClick: (MovieItem) -> Unit, // ✅ ADDED THIS
     onNavigateToSubscription: () -> Unit = {}
 ) {
     val emeraldGreen = Color(0xFF2ECC71)
@@ -3063,12 +3128,10 @@ fun MovieDetailScreen(
     var hasActiveSubscription by remember { mutableStateOf(false) }
     var showSubscriptionDialog by remember { mutableStateOf(false) }
 
-    // ✅ Original Subscription Check logic
+    // Subscription Logic
     LaunchedEffect(currentUserId) {
         if (currentUserId != null) {
-            db.collection("subscriptions")
-                .whereEqualTo("userId", currentUserId)
-                .whereEqualTo("status", "active")
+            db.collection("subscriptions").whereEqualTo("userId", currentUserId).whereEqualTo("status", "active")
                 .addSnapshotListener { snapshot, _ ->
                     val activeSub = snapshot?.documents?.firstOrNull { doc ->
                         val expiry = doc.getTimestamp("endDate")?.toDate()
@@ -3079,46 +3142,33 @@ fun MovieDetailScreen(
         }
     }
 
-    // ✅ Original Favorites Check logic
+    // Favorite Check
     LaunchedEffect(movie.docId) {
         if (currentUserId != null) {
-            db.collection("users").document(currentUserId)
-                .collection("favorites").document(movie.docId).get()
-                .addOnSuccessListener { doc ->
-                    isFavorite = doc.exists()
-                    isCheckingFavorite = false
-                }
+            db.collection("users").document(currentUserId).collection("favorites").document(movie.docId).get()
+                .addOnSuccessListener { doc -> isFavorite = doc.exists(); isCheckingFavorite = false }
         }
     }
 
-    // ✅ All your original Helper Functions (Toggle, Share, Trailer)
     fun toggleFavorite() {
         if (currentUserId == null) return
         val favRef = db.collection("users").document(currentUserId).collection("favorites").document(movie.docId)
-        if (isFavorite) {
-            favRef.delete().addOnSuccessListener { isFavorite = false }
-        } else {
-            val favoriteData = hashMapOf(
-                "movieId" to movie.docId, "title" to movie.title,
-                "poster" to movie.poster, "rating" to movie.rating,
-                "addedAt" to com.google.firebase.Timestamp.now()
-            )
-            favRef.set(favoriteData).addOnSuccessListener { isFavorite = true }
+        if (isFavorite) { favRef.delete().addOnSuccessListener { isFavorite = false } }
+        else {
+            val data = hashMapOf("movieId" to movie.docId, "title" to movie.title, "poster" to movie.poster, "rating" to movie.rating, "addedAt" to com.google.firebase.Timestamp.now())
+            favRef.set(data).addOnSuccessListener { isFavorite = true }
         }
     }
 
     fun openTrailer() {
         if (movie.trailerUrl.isEmpty()) return
+        // ✅ Fixed the URI string template here
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=${movie.trailerUrl}")))
     }
 
     fun shareMovie() {
-        val shareIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Check out ${movie.title} on MovieFlix!")
-        }
-        context.startActivity(Intent.createChooser(shareIntent, "Share via"))
+        val intent = Intent().apply { action = Intent.ACTION_SEND; type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Check out ${movie.title} on MovieFlix!") }
+        context.startActivity(Intent.createChooser(intent, "Share via"))
     }
 
     val sizes = getResponsiveSizes()
@@ -3126,20 +3176,12 @@ fun MovieDetailScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                // Header UI: Backdrop & Poster
                 Box(modifier = Modifier.fillMaxWidth().height(380.dp)) {
-                    SubcomposeAsyncImage(
-                        model = movie.backdrop.ifEmpty { movie.poster },
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
+                    SubcomposeAsyncImage(model = movie.backdrop.ifEmpty { movie.poster }, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(0.4f), Color.Black))))
-
                     IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(36.dp).background(Color.Black.copy(0.7f), CircleShape)) {
                         Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.White)
                     }
-
                     Row(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(sizes.paddingMedium), verticalAlignment = Alignment.Bottom) {
                         Card(modifier = Modifier.width(sizes.posterWidth).height(sizes.posterHeight), shape = RoundedCornerShape(8.dp)) {
                             SubcomposeAsyncImage(model = movie.poster, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -3147,11 +3189,9 @@ fun MovieDetailScreen(
                         Spacer(modifier = Modifier.width(sizes.paddingMedium))
                         Column(modifier = Modifier.weight(1f).padding(bottom = sizes.paddingSmall)) {
                             Text(text = movie.title, color = Color.White, fontSize = sizes.titleSize, fontWeight = FontWeight.Bold)
-                            if (movie.rating > 0) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = Color.Yellow, modifier = Modifier.size(sizes.iconSmall))
-                                    Text(String.format(Locale.US, " %.1f / 10", movie.rating), color = Color.White, fontSize = sizes.bodySize)
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = Color.Yellow, modifier = Modifier.size(sizes.iconSmall))
+                                Text(String.format(Locale.US, " %.1f / 10", movie.rating), color = Color.White, fontSize = sizes.bodySize)
                             }
                         }
                     }
@@ -3160,28 +3200,16 @@ fun MovieDetailScreen(
 
             item {
                 Column(modifier = Modifier.fillMaxWidth().padding(sizes.paddingMedium)) {
-                    // Play Button
-                    Button(
-                        onClick = { if (hasActiveSubscription) showPlayOptionsDialog = true else showSubscriptionDialog = true },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = emeraldGreen),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Play", fontWeight = FontWeight.Bold, color = Color.Black)
+                    Button(onClick = { if (hasActiveSubscription) showPlayOptionsDialog = true else showSubscriptionDialog = true }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = emeraldGreen), shape = RoundedCornerShape(6.dp)) {
+                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black); Spacer(Modifier.width(8.dp)); Text("Play", fontWeight = FontWeight.Bold, color = Color.Black)
                     }
-
                     if (movie.trailerUrl.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(onClick = { openTrailer() }, modifier = Modifier.fillMaxWidth().height(48.dp), border = BorderStroke(1.dp, Color.White.copy(0.5f)), shape = RoundedCornerShape(6.dp)) {
+                        OutlinedButton(onClick = { openTrailer() }, modifier = Modifier.fillMaxWidth().height(48.dp), border = BorderStroke(1.dp, Color.White.copy(0.5f))) {
                             Text("Watch Trailer", color = Color.White)
                         }
                     }
-
                     Spacer(modifier = Modifier.height(20.dp))
-
-                    // All Original Action Icons
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { toggleFavorite() }) {
                             Icon(imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null, tint = if (isFavorite) Color.Red else Color.White)
@@ -3196,16 +3224,14 @@ fun MovieDetailScreen(
                             Text("Download", color = Color.White, fontSize = 11.sp)
                         }
                     }
-
                     Spacer(modifier = Modifier.height(20.dp))
                     Text(text = movie.description, color = Color.White.copy(0.9f), fontSize = 14.sp, lineHeight = 20.sp)
-
                     if (movie.genres.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(movie.genres) { genre ->
                                 Surface(shape = RoundedCornerShape(16.dp), color = Color.White.copy(0.12f), border = BorderStroke(1.dp, Color.White.copy(0.3f))) {
-                                    Text(genre, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
+                                    Text(genre, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                                 }
                             }
                         }
@@ -3213,37 +3239,28 @@ fun MovieDetailScreen(
                 }
             }
 
-            // ✅ RESTORED: Users Also Watched Section
+            // ✅ FIXED: Now calls onMovieClick(it) to switch movies
             item {
-                UsersAlsoWatchedSection(movieId = movie.docId, onMovieClick = { clickedMovie -> onClose() })
+                UsersAlsoWatchedSection(
+                    movieId = movie.docId,
+                    onMovieClick = { onMovieClick(it) }
+                )
             }
         }
 
-        // ✅ Updated Play Dialog with your specific hardcoded link
+        // Play Options Dialog
         if (showPlayOptionsDialog) {
             AlertDialog(
                 onDismissRequest = { showPlayOptionsDialog = false },
                 containerColor = Color(0xFF1a1a2e),
-                title = { Text("Select Player Mode", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Select Player", color = Color.White) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Card(modifier = Modifier.fillMaxWidth().clickable {
-                            showPlayOptionsDialog = false
-                            onPlayClick(movie)
-                        }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
-                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.PlayCircle, contentDescription = null, tint = emeraldGreen)
-                                Text("Stream Movie", color = Color.White, fontWeight = FontWeight.Bold)
-                            }
+                        Card(modifier = Modifier.fillMaxWidth().clickable { showPlayOptionsDialog = false; onPlayClick(movie) }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.PlayCircle, null, tint = emeraldGreen); Text(" Stream Movie", color = Color.White) }
                         }
-                        Card(modifier = Modifier.fillMaxWidth().clickable {
-                            showPlayOptionsDialog = false
-                            onPlayClick(movie.copy(streamUrl = "exo_logic:gs://movieflix-fb904.firebasestorage.app/my_movie.mp4"))
-                        }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
-                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.Movie, contentDescription = null, tint = Color(0xFFFFD700))
-                                Text(" Exo Player", color = Color.White, fontWeight = FontWeight.Bold)
-                            }
+                        Card(modifier = Modifier.fillMaxWidth().clickable { showPlayOptionsDialog = false; onPlayClick(movie.copy(streamUrl = "exo_logic:gs://movieflix-fb904.firebasestorage.app/my_movie.mp4")) }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Movie, null, tint = Color(0xFFFFD700)); Text(" Exo Player", color = Color.White) }
                         }
                     }
                 },
@@ -3253,17 +3270,10 @@ fun MovieDetailScreen(
         }
 
         if (showSubscriptionDialog) {
-            AlertDialog(
-                onDismissRequest = { showSubscriptionDialog = false },
-                containerColor = Color(0xFF1a1a2e),
-                title = { Text("Subscription Required", color = Color.White) },
-                text = { Text("Please subscribe to unlock full movies.", color = Color.White.copy(0.8f)) },
-                confirmButton = { Button(onClick = { showSubscriptionDialog = false; onClose(); onNavigateToSubscription() }) { Text("Subscribe Now") } }
-            )
+            AlertDialog(onDismissRequest = { showSubscriptionDialog = false }, containerColor = Color(0xFF1a1a2e), title = { Text("Premium Only", color = Color.White) }, text = { Text("Subscribe to watch this movie.", color = Color.White.copy(0.8f)) }, confirmButton = { Button(onClick = { showSubscriptionDialog = false; onClose(); onNavigateToSubscription() }) { Text("Subscribe") } })
         }
     }
 }
-
 
 
 @Composable
@@ -3271,261 +3281,304 @@ fun MoviePlayerScreen(
     movie: com.manish.demo.viewmodel.MovieItem,
     onClose: () -> Unit
 ) {
-    if (movie.streamUrl.startsWith("exo_logic:")) {
-        val storageUrl = movie.streamUrl.removePrefix("exo_logic:")
-        var resolvedUrl by remember { mutableStateOf<String?>(null) }
-        var isLoading by remember { mutableStateOf(true) }
+    var resolvedVideoUrl by remember { mutableStateOf<String?>(null) }
+    var resolvedSubEng by remember { mutableStateOf<String?>(null) }
+    var resolvedSubNep by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
 
-        LaunchedEffect(storageUrl) {
-            try {
-                val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance()
-                    .getReferenceFromUrl(storageUrl)
-                storageRef.downloadUrl.addOnSuccessListener { uri ->
-                    resolvedUrl = uri.toString()
-                    isLoading = false
-                }
-            } catch (e: Exception) {
-                isLoading = false
-            }
-        }
+    LaunchedEffect(movie.streamUrl) {
+        val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+        try {
+            // Video
+            storage.getReferenceFromUrl("gs://movieflix-fb904.firebasestorage.app/my_movie.mp4")
+                .downloadUrl.addOnSuccessListener { vUri ->
+                    resolvedVideoUrl = vUri.toString()
+                    // English Sub
+                    storage.getReferenceFromUrl("gs://movieflix-fb904.firebasestorage.app/sub_english.srt")
+                        .downloadUrl.addOnSuccessListener { eUri ->
+                            resolvedSubEng = eUri.toString()
+                            // Nepali Sub
+                            storage.getReferenceFromUrl("gs://movieflix-fb904.firebasestorage.app/sub_nepali.srt")
+                                .downloadUrl.addOnSuccessListener { nUri ->
+                                    resolvedSubNep = nUri.toString()
+                                    isLoading = false
+                                }.addOnFailureListener { isLoading = false }
+                        }.addOnFailureListener { isLoading = false }
+                }.addOnFailureListener { isLoading = false }
+        } catch (e: Exception) { isLoading = false }
+    }
 
-        if (isLoading) {
-            Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFF2ECC71))
-            }
-        } else if (resolvedUrl != null) {
-            ExoPlayerScreen(url = resolvedUrl!!, onClose = onClose)
+    if (isLoading) {
+        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color(0xFF2ECC71))
         }
-    } else {
-        WebViewPlayerScreen(movie = movie, onClose = onClose)
+    } else if (resolvedVideoUrl != null) {
+        ExoPlayerScreen(
+            url = resolvedVideoUrl!!,
+            subEngUrl = resolvedSubEng ?: "",
+            subNepUrl = resolvedSubNep ?: "",
+            movieName = movie.title,
+            onClose = onClose
+        )
     }
 }
 
+
+
+@OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun ExoPlayerScreen(
-    url: String, // Dynamic URL from Firebase
+    url: String,
+    subEngUrl: String,
+    subNepUrl: String,
+    movieName: String,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    val exoPlayer = remember { androidx.media3.exoplayer.ExoPlayer.Builder(context).build() }
 
-    // 1. PLAYER & UI STATE
-    val exoPlayer = remember {
-        androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
-    }
+    // --- Interaction for Slider ---
+    val sliderInteractionSource = remember { MutableInteractionSource() }
+    val isSliderPressed by sliderInteractionSource.collectIsPressedAsState()
+    val isSliderDragged by sliderInteractionSource.collectIsDraggedAsState()
+    var isThumbPersistent by remember { mutableStateOf(false) }
 
+    // --- Player States ---
     var isPlaying by remember { mutableStateOf(true) }
     var currentPosition by remember { mutableStateOf(0L) }
     var totalDuration by remember { mutableStateOf(0L) }
+    var bufferedPosition by remember { mutableStateOf(0L) }
     var isControlsVisible by remember { mutableStateOf(true) }
-    var isLoading by remember { mutableStateOf(true) }
     var isLocked by remember { mutableStateOf(false) }
-    var playbackSpeed by remember { mutableStateOf(1.0f) }
-    var resizeMode by remember { mutableStateOf(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+    var isLoading by remember { mutableStateOf(true) }
 
-    // Prepare Player with the dynamic URL
-    LaunchedEffect(url) {
-        exoPlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(url))
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
+    // Volume & Brightness
+    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+    var currentVolume by remember { mutableStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)) }
+    var showVolumeBar by remember { mutableStateOf(false) }
+    var currentBrightness by remember {
+        val lp = activity?.window?.attributes
+        mutableStateOf(if (lp != null && lp.screenBrightness > 0) lp.screenBrightness else 0.5f)
+    }
+    var showBrightnessBar by remember { mutableStateOf(false) }
+
+    // Settings
+    var showSettingsMenu by remember { mutableStateOf(false) }
+    var settingsTab by remember { mutableStateOf("main") }
+    var selectedQuality by remember { mutableStateOf("Auto") }
+    var selectedCaption by remember { mutableStateOf("Off") }
+    var resizeMode by remember { mutableStateOf(AspectRatioFrameLayout.RESIZE_MODE_FIT) }
+    val isFullScreen = resizeMode != AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+    // --- ✅ SLIDER THUMB VISIBILITY LOGIC ---
+    // If the user is dragging OR if we are in the "grace period" after release, show the dot
+    val shouldShowThumb = isSliderPressed || isSliderDragged || isThumbPersistent
+
+    LaunchedEffect(isSliderDragged, isSliderPressed) {
+        if (isSliderDragged || isSliderPressed) {
+            isThumbPersistent = true
+        } else {
+            // Keep the dot visible for 2 seconds after the user lets go
+            delay(2000)
+            isThumbPersistent = false
+        }
     }
 
-    // 2. LIFECYCLE & IMMERSIVE SETUP
-    DisposableEffect(Unit) {
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        val window = activity?.window
-        val insetsController = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
-        insetsController?.hide(WindowInsetsCompat.Type.systemBars())
-        insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    // --- Initialization ---
+    LaunchedEffect(url) {
+        val mediaItemBuilder = MediaItem.Builder().setUri(url)
+        val subtitleConfigs = mutableListOf<MediaItem.SubtitleConfiguration>()
+        if (subEngUrl.isNotEmpty()) {
+            subtitleConfigs.add(MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subEngUrl))
+                .setMimeType(MimeTypes.APPLICATION_SUBRIP).setLanguage("en").setLabel("English").build())
+        }
+        if (subNepUrl.isNotEmpty()) {
+            subtitleConfigs.add(MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subNepUrl))
+                .setMimeType(MimeTypes.APPLICATION_SUBRIP).setLanguage("ne").setLabel("Nepali").build())
+        }
+        exoPlayer.setMediaItem(mediaItemBuilder.setSubtitleConfigurations(subtitleConfigs).build())
+        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+        exoPlayer.prepare(); exoPlayer.playWhenReady = true
+    }
+
+    // Progress & Buffer Updater
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentPosition = exoPlayer.currentPosition
+            bufferedPosition = exoPlayer.bufferedPosition
+            delay(1000)
+        }
+    }
+
+    // Timers & System UI
+    LaunchedEffect(isControlsVisible, isPlaying, isLocked) { if (isControlsVisible && isPlaying && !isLocked) { delay(3000); isControlsVisible = false } }
+    LaunchedEffect(showVolumeBar) { if (showVolumeBar) { delay(2000); showVolumeBar = false } }
+    LaunchedEffect(showBrightnessBar) { if (showBrightnessBar) { delay(2000); showBrightnessBar = false } }
+
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                showVolumeBar = true
+            }
+        }
+        context.registerReceiver(receiver, IntentFilter("android.media.VOLUME_CHANGED_ACTION"))
+        val insets = androidx.core.view.WindowCompat.getInsetsController(activity!!.window, activity.window.decorView)
+        insets.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
 
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == androidx.media3.common.Player.STATE_BUFFERING
                 if (state == androidx.media3.common.Player.STATE_READY) totalDuration = exoPlayer.duration
             }
-            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+            override fun onIsPlayingChanged(p: Boolean) { isPlaying = p }
         }
         exoPlayer.addListener(listener)
-
-        onDispose {
-            exoPlayer.release()
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            insetsController?.show(WindowInsetsCompat.Type.systemBars())
-        }
+        onDispose { context.unregisterReceiver(receiver); exoPlayer.release(); activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
     }
 
-    LaunchedEffect(isPlaying) {
-        while (isPlaying) {
-            currentPosition = exoPlayer.currentPosition
-            kotlinx.coroutines.delay(1000)
-        }
-    }
-
-    LaunchedEffect(isControlsVisible, isPlaying, isLocked) {
-        if (isControlsVisible && isPlaying && !isLocked) {
-            kotlinx.coroutines.delay(4000)
-            isControlsVisible = false
-        }
-    }
-
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(Color.Black)
-        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
-            isControlsVisible = !isControlsVisible
-        }
-    ) {
-        // VIDEO LAYER
-        AndroidView(
-            factory = { ctx ->
-                androidx.media3.ui.PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = false
-                    this.resizeMode = resizeMode
-                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                }
-            },
-            update = { it.resizeMode = resizeMode },
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // CONTROL OVERLAY
-        androidx.compose.animation.AnimatedVisibility(
-            visible = isControlsVisible,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(),
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically()
-        ) {
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Black.copy(0.8f), Color.Transparent, Color.Black.copy(0.8f))
-                    )
-                )
-            ) {
-
-                if (!isLocked) {
-                    // --- TOP BAR (Your Original Branding) ---
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 24.dp, vertical = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = onClose) {
-                            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
-                        }
-                        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text("Now Streaming", color = Color.White.copy(0.6f), fontSize = 12.sp)
-                            Text("MovieFlix Premium", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        }
-
-                        Surface(
-                            onClick = {
-                                playbackSpeed = if (playbackSpeed >= 2.0f) 0.75f else playbackSpeed + 0.25f
-                                exoPlayer.setPlaybackSpeed(playbackSpeed)
-                            },
-                            color = Color.White.copy(0.1f),
-                            shape = RoundedCornerShape(20.dp),
-                            border = BorderStroke(1.dp, Color.White.copy(0.2f))
-                        ) {
-                            Text("${playbackSpeed}x", color = Color.White, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    // --- CENTER HUB (Your Original 90dp Netflix Hub) ---
-                    Row(
-                        modifier = Modifier.align(Alignment.Center),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(80.dp)
-                    ) {
-                        IconButton(onClick = { exoPlayer.seekTo(currentPosition - 10000) }) {
-                            Icon(imageVector = Icons.Default.Replay10, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(90.dp)
-                                .background(Color.White.copy(0.15f), CircleShape)
-                                .border(2.dp, Color.White.copy(0.4f), CircleShape)
-                                .clickable { if (isPlaying) exoPlayer.pause() else exoPlayer.play() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(60.dp)
-                            )
-                        }
-
-                        IconButton(onClick = { exoPlayer.seekTo(currentPosition + 10000) }) {
-                            Icon(imageVector = Icons.Default.Forward10, contentDescription = null, tint = Color.White, modifier = Modifier.size(50.dp))
-                        }
-                    }
-
-                    // --- BOTTOM SEEKER ---
-                    Column(
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 30.dp, vertical = 30.dp)
-                    ) {
-                        androidx.compose.material3.Slider(
-                            value = currentPosition.toFloat(),
-                            onValueChange = { exoPlayer.seekTo(it.toLong()) },
-                            valueRange = 0f..(if (totalDuration > 0) totalDuration.toFloat() else 1f),
-                            colors = androidx.compose.material3.SliderDefaults.colors(
-                                thumbColor = Color.Red, activeTrackColor = Color.Red, inactiveTrackColor = Color.Gray.copy(0.5f)
-                            )
-                        )
-
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(formatTime(currentPosition), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                            Text(" / ${formatTime(totalDuration)}", color = Color.White.copy(0.5f), fontSize = 14.sp)
-                            Spacer(Modifier.weight(1f))
-
-                            IconButton(onClick = {
-                                resizeMode = when(resizeMode) {
-                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
-                                    else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                }
-                            }) {
-                                val (icon, label) = when(resizeMode) {
-                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> Icons.Default.FullscreenExit to "Original"
-                                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> Icons.Default.AspectRatio to "Fill"
-                                    else -> Icons.Default.Fullscreen to "Zoom"
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(imageVector = icon, contentDescription = null, tint = Color.White)
-                                    Text(label, color = Color.White, fontSize = 8.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // --- FLOATING LOCK BUTTON (Your Original Left-Side Surface) ---
-                Surface(
-                    onClick = { isLocked = !isLocked },
-                    color = if (isLocked) Color.Red.copy(0.8f) else Color.Black.copy(0.6f),
-                    shape = CircleShape,
-                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 30.dp).size(50.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(0.2f))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                            contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp)
-                        )
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)
+        .pointerInput(isLocked) {
+            if (!isLocked) {
+                detectVerticalDragGestures { change, dragAmount ->
+                    if (change.position.x < size.width / 3) {
+                        showBrightnessBar = true
+                        val delta = -dragAmount / size.height
+                        currentBrightness = (currentBrightness + delta).coerceIn(0.01f, 1f)
+                        activity?.window?.let { it.attributes = it.attributes.apply { screenBrightness = currentBrightness } }
+                    } else if (change.position.x > size.width * 2 / 3) {
+                        showVolumeBar = true
+                        val delta = if (dragAmount < 0) 1 else -1
+                        currentVolume = (currentVolume + delta).coerceIn(0, maxVolume)
+                        audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, currentVolume, 0)
                     }
                 }
             }
         }
-
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center).size(60.dp), color = Color.Red, strokeWidth = 5.dp)
+        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+            isControlsVisible = !isControlsVisible
+            if (!isControlsVisible) { showSettingsMenu = false; showVolumeBar = false; showBrightnessBar = false }
         }
+    ) {
+        AndroidView(
+            factory = { ctx -> PlayerView(ctx).apply { player = exoPlayer; useController = false; this.resizeMode = resizeMode; subtitleView?.setFixedTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f); layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) } },
+            update = { view -> view.resizeMode = resizeMode; val bottomPadding = if (isControlsVisible) 130 else 70; view.subtitleView?.setPadding(0, 0, 0, bottomPadding) },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Sidebar Bars (Brightness & Volume)
+        AnimatedVisibility(visible = showBrightnessBar, modifier = Modifier.align(Alignment.CenterStart).padding(start = 40.dp), enter = fadeIn(), exit = fadeOut()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(modifier = Modifier.height(160.dp).width(6.dp).background(Color.White.copy(0.2f), CircleShape)) {
+                    Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(currentBrightness).background(Color.White, CircleShape).align(Alignment.BottomCenter))
+                }
+                Spacer(Modifier.height(8.dp)); Icon(imageVector = Icons.Default.WbSunny, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+        }
+        AnimatedVisibility(visible = showVolumeBar, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 40.dp), enter = fadeIn(), exit = fadeOut()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(modifier = Modifier.height(160.dp).width(6.dp).background(Color.White.copy(0.2f), CircleShape)) {
+                    Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(currentVolume.toFloat() / maxVolume).background(Color.White, CircleShape).align(Alignment.BottomCenter))
+                }
+                Spacer(Modifier.height(8.dp)); Icon(imageVector = if (currentVolume == 0) Icons.Default.VolumeOff else Icons.Default.VolumeUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+        }
+
+        // --- Controls UI ---
+        AnimatedVisibility(visible = isControlsVisible, enter = fadeIn(), exit = fadeOut()) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (!isLocked) {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.4f))) {
+                        // Top Bar
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column { Text("Now Streaming", color = Color.White.copy(0.7f), fontSize = 11.sp); Text("MovieFlix Premium", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+                            if (!isFullScreen) IconButton(onClick = onClose) { Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp)) }
+                        }
+                        // Center Hub
+                        Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(70.dp)) {
+                            IconButton(onClick = { exoPlayer.seekTo(currentPosition - 10000) }) { Icon(imageVector = Icons.Default.Replay10, contentDescription = null, tint = Color.White, modifier = Modifier.size(45.dp)) }
+                            Icon(imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(85.dp).clickable { if (isPlaying) exoPlayer.pause() else exoPlayer.play() } )
+                            IconButton(onClick = { exoPlayer.seekTo(currentPosition + 10000) }) { Icon(imageVector = Icons.Default.Forward10, contentDescription = null, tint = Color.White, modifier = Modifier.size(45.dp)) }
+                        }
+
+                        // Settings Card (Quality & Captions)
+                        if (showSettingsMenu) {
+                            Card(modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 90.dp, end = 20.dp).width(220.dp), colors = CardDefaults.cardColors(containerColor = Color.Black.copy(0.9f)), shape = RoundedCornerShape(12.dp)) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    when (settingsTab) {
+                                        "main" -> {
+                                            Row(Modifier.fillMaxWidth().clickable { settingsTab = "quality" }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(imageVector = Icons.Default.HighQuality, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)); Text(" Quality", color = Color.White, modifier = Modifier.weight(1f)); Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
+                                            Row(Modifier.fillMaxWidth().clickable { settingsTab = "captions" }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(imageVector = Icons.Default.ClosedCaption, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)); Text(" Captions", color = Color.White, modifier = Modifier.weight(1f)); Text(selectedCaption, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp)); Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray) }
+                                        }
+                                        "quality" -> {
+                                            Row(Modifier.clickable { settingsTab = "main" }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(imageVector = Icons.Default.ArrowBackIosNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp)); Text(" Quality", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp)) }
+                                            listOf("1080p", "Auto").forEach { q -> TextButton(onClick = { selectedQuality = q; showSettingsMenu = false; settingsTab = "main" }, modifier = Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(20.dp)) { if (selectedQuality == q) Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color(0xFF2ECC71)) }; Text(q, color = if(selectedQuality == q) Color(0xFF2ECC71) else Color.White, modifier = Modifier.padding(start = 12.dp)) } } }
+                                        }
+                                        "captions" -> {
+                                            Row(Modifier.clickable { settingsTab = "main" }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(imageVector = Icons.Default.ArrowBackIosNew, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp)); Text(" Captions", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp)) }
+                                            listOf("Off" to "off", "English" to "en", "Nepali" to "ne").forEach { (label, code) ->
+                                                TextButton(onClick = {
+                                                    selectedCaption = label
+                                                    val b = exoPlayer.trackSelectionParameters.buildUpon()
+                                                    if (code == "off") b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true) else b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).setPreferredTextLanguage(code)
+                                                    exoPlayer.trackSelectionParameters = b.build(); showSettingsMenu = false; settingsTab = "main"
+                                                }, modifier = Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(20.dp)) { if (selectedCaption == label) Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color(0xFF2ECC71)) }; Text(label, color = if(selectedCaption == label) Color(0xFF2ECC71) else Color.White, modifier = Modifier.padding(start = 12.dp)) } }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // --- YOUTUBE PROGRESS BAR WITH BUFFER & DYNAMIC THUMB ---
+                        Column(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp)) {
+                            Slider(
+                                value = currentPosition.toFloat(),
+                                onValueChange = { exoPlayer.seekTo(it.toLong()) },
+                                valueRange = 0f..(if (totalDuration > 0) totalDuration.toFloat() else 1f),
+                                interactionSource = sliderInteractionSource, // Detects touch
+                                modifier = Modifier.fillMaxWidth().height(12.dp).padding(horizontal = 12.dp),
+                                thumb = {
+                                    // ✅ Thumb only appears when shouldShowThumb is true
+                                    if (shouldShowThumb) {
+                                        Spacer(modifier = Modifier.size(12.dp).background(Color.Red, CircleShape).shadow(2.dp, CircleShape))
+                                    }
+                                },
+                                track = {
+                                    val playedFrac = if (totalDuration > 0) currentPosition.toFloat() / totalDuration else 0f
+                                    val bufferedFrac = if (totalDuration > 0) bufferedPosition.toFloat() / totalDuration else 0f
+                                    Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Color.White.copy(0.2f), RoundedCornerShape(2.dp))) {
+                                        // Buffer Layer
+                                        Box(modifier = Modifier.fillMaxWidth(bufferedFrac).fillMaxHeight().background(Color.White.copy(0.4f), RoundedCornerShape(2.dp)))
+                                        // Played Layer
+                                        Box(modifier = Modifier.fillMaxWidth(playedFrac).fillMaxHeight().background(Color.Red, RoundedCornerShape(2.dp)))
+                                    }
+                                }
+                            )
+
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { if (isPlaying) exoPlayer.pause() else exoPlayer.play() }) { Icon(imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null, tint = Color.White) }
+                                IconButton(onClick = { showVolumeBar = !showVolumeBar }) { Icon(imageVector = if (currentVolume == 0) Icons.Default.VolumeOff else Icons.Default.VolumeUp, contentDescription = null, tint = Color.White) }
+                                Text("${formatTime(currentPosition)} / ${formatTime(totalDuration)}", color = Color.White, fontSize = 12.sp)
+                                Text(text = movieName, color = Color.White, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                IconButton(onClick = { showSettingsMenu = !showSettingsMenu; settingsTab = "main" }) { Icon(imageVector = Icons.Default.Settings, contentDescription = null, tint = Color.White) }
+                                IconButton(onClick = { resizeMode = if (resizeMode == 0) 4 else 0 }) { Icon(imageVector = if (isFullScreen) Icons.Default.AspectRatio else Icons.Default.Fullscreen, contentDescription = null, tint = Color.White) }
+                            }
+                        }
+                    }
+                }
+                // Lock Button
+                IconButton(onClick = { isLocked = !isLocked }, modifier = Modifier.align(Alignment.CenterStart).padding(start = 20.dp).background(if (isLocked) Color.Red.copy(0.7f) else Color.Black.copy(0.5f), CircleShape)) {
+                    Icon(imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+        if (isLoading) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.Red, strokeWidth = 4.dp)
     }
 }
 @Composable
@@ -3543,8 +3596,6 @@ fun formatTime(ms: Long): String {
     val seconds = totalSeconds % 60
     return String.format("%02d:%02d", minutes, seconds)
 }
-
-
 
 @Composable
 fun WebViewPlayerScreen(
