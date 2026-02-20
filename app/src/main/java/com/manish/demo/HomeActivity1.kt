@@ -3246,10 +3246,6 @@ fun MovieDetailScreen(
                             Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = Color.White)
                             Text("Share", color = Color.White, fontSize = 11.sp)
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { /* Download */ }) {
-                            Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = Color.White)
-                            Text("Download", color = Color.White, fontSize = 11.sp)
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
