@@ -1028,10 +1028,12 @@ fun GlassMorphicTabBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
             onClick = { onTabSelected(0) },
             modifier = Modifier.weight(1f)
         )
-        Box(modifier = Modifier
-            .width(1.dp)
-            .fillMaxHeight()
-            .background(Color(0x20FFFFFF)))
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .fillMaxHeight()
+                .background(Color(0x20FFFFFF))
+        )
 
         TabButton(
             text = "Genres",

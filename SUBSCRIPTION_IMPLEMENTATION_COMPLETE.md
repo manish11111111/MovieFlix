@@ -5,7 +5,10 @@
 ---
 
 ## 🎯 Overview
-Successfully implemented a complete subscription system for MovieFlix with proper Firebase Firestore relational structure. When a user purchases a plan via eSewa, the subscription is automatically created in Firebase, and the UI updates to show their active subscription status.
+
+Successfully implemented a complete subscription system for MovieFlix with proper Firebase Firestore
+relational structure. When a user purchases a plan via eSewa, the subscription is automatically
+created in Firebase, and the UI updates to show their active subscription status.
 
 ---
 
@@ -14,6 +17,7 @@ Successfully implemented a complete subscription system for MovieFlix with prope
 ### 1. **ESewaPaymentHandler.kt - Firebase Integration**
 
 #### Added Features:
+
 - ✅ Automatic subscription creation in Firestore after successful payment
 - ✅ Proper relational data structure matching SubscriptionViewModel
 - ✅ User document updates with subscription status
@@ -21,6 +25,7 @@ Successfully implemented a complete subscription system for MovieFlix with prope
 - ✅ Activity logging for admin tracking
 
 #### Key Changes:
+
 ```kotlin
 // Firebase instances added
 private val auth = FirebaseAuth.getInstance()
@@ -34,12 +39,14 @@ private var planDuration: Int = 30
 ```
 
 #### New Functions Added:
+
 1. **`createSubscriptionInFirebase()`** - Creates subscription with correct field structure
 2. **`updateUserDocument()`** - Marks user as having active subscription
 3. **`updateSubscriptionStats()`** - Updates Dashboard stats
 4. **`logSubscriptionActivity()`** - Logs purchase for admin panel
 
 #### Subscription Data Structure (Matches SubscriptionViewModel):
+
 ```kotlin
 val subscriptionData = hashMapOf(
     // Relational fields
@@ -62,6 +69,7 @@ val subscriptionData = hashMapOf(
 ### 2. **HomeActivity1.kt - User Subscription UI**
 
 #### Added Features:
+
 - ✅ Conditional UI display based on subscription status
 - ✅ Shows subscription plans ONLY if user has NO active subscription
 - ✅ Shows "You're All Set!" message when user has active subscription
@@ -72,11 +80,13 @@ val subscriptionData = hashMapOf(
 #### Key Changes:
 
 **New State Variable:**
+
 ```kotlin
 var hasActiveSubscription by remember { mutableStateOf(false) }
 ```
 
 **Fixed Field Names:**
+
 ```kotlin
 // OLD (incorrect):
 doc.getTimestamp("expiryDate")?.toDate()
@@ -93,6 +103,7 @@ db.collection("subscription_plans").document(planId).get()
 ```
 
 **Conditional UI Logic:**
+
 ```kotlin
 // Show active subscription card if user has subscription
 if (hasActiveSubscription && activeSubscription != null) {
@@ -108,6 +119,7 @@ if (!hasActiveSubscription) {
 ```
 
 **Payment Result Handling:**
+
 ```kotlin
 val esewaPaymentLauncher = rememberLauncherForActivityResult(...) { result ->
     when (result.resultCode) {
@@ -126,6 +138,7 @@ val esewaPaymentLauncher = rememberLauncherForActivityResult(...) { result ->
 ## 📊 Firebase Collections Structure
 
 ### **1. `users` Collection**
+
 ```javascript
 {
   userId: "auto-generated-id",
@@ -142,6 +155,7 @@ val esewaPaymentLauncher = rememberLauncherForActivityResult(...) { result ->
 ```
 
 ### **2. `subscription_plans` Collection**
+
 ```javascript
 {
   planId: "auto-generated-id",
@@ -153,6 +167,7 @@ val esewaPaymentLauncher = rememberLauncherForActivityResult(...) { result ->
 ```
 
 ### **3. `subscriptions` Collection** (Relational)
+
 ```javascript
 {
   subscriptionId: "auto-generated-id",
@@ -171,6 +186,7 @@ val esewaPaymentLauncher = rememberLauncherForActivityResult(...) { result ->
 ```
 
 ### **4. `activities` Collection** (For admin logging)
+
 ```javascript
 {
   activityId: "auto-generated-id",
@@ -181,6 +197,7 @@ val esewaPaymentLauncher = rememberLauncherForActivityResult(...) { result ->
 ```
 
 ### **5. `Dashboard_stats` Collection**
+
 ```javascript
 {
   docId: "YbIkiRVdxGQqvza8K85i",  // Fixed document ID
@@ -194,27 +211,29 @@ val esewaPaymentLauncher = rememberLauncherForActivityResult(...) { result ->
 ## 🔄 Complete User Flow
 
 ### **Purchase Flow:**
+
 1. User opens "Subscribe" tab
 2. **IF** user has active subscription:
-   - Show current plan details (name, expiry date)
-   - Show "You're All Set!" message
-   - **DON'T** show subscription plans
+    - Show current plan details (name, expiry date)
+    - Show "You're All Set!" message
+    - **DON'T** show subscription plans
 3. **IF** user has NO active subscription:
-   - Show available subscription plans
-   - Show "Pay with eSewa" buttons
+    - Show available subscription plans
+    - Show "Pay with eSewa" buttons
 4. User clicks "Pay with eSewa"
 5. eSewa SDK launches for payment
 6. User completes payment
 7. **ESewaPaymentHandler** automatically:
-   - Creates subscription in `subscriptions` collection
-   - Updates user document with `hasActiveSubscription: true`
-   - Increments `activeSubs` in Dashboard stats
-   - Logs activity for admin
+    - Creates subscription in `subscriptions` collection
+    - Updates user document with `hasActiveSubscription: true`
+    - Increments `activeSubs` in Dashboard stats
+    - Logs activity for admin
 8. User sees "Subscription Activated Successfully!" toast
 9. UI automatically refreshes (via snapshot listener)
 10. User now sees their active subscription
 
 ### **Relational Data Flow:**
+
 ```
 User purchases → 
   Subscription created with {userId, planId} → 
@@ -230,12 +249,14 @@ User purchases →
 ## 🎨 UI Improvements
 
 ### **Before:**
+
 - ❌ Showed all subscription plans regardless of user status
 - ❌ Used incorrect field names (`expiryDate` vs `endDate`)
 - ❌ No relational plan name fetching
 - ❌ No subscription creation on payment success
 
 ### **After:**
+
 - ✅ Conditional display based on subscription status
 - ✅ Correct field names matching SubscriptionViewModel
 - ✅ Relational plan name fetching from `subscription_plans`
@@ -248,19 +269,23 @@ User purchases →
 ## 🔧 Technical Details
 
 ### **Relational Structure:**
+
 The implementation uses a **denormalized-relational hybrid** approach:
+
 - Store `userId` and `planId` as references (relational)
 - SubscriptionViewModel performs **runtime joins** to fetch:
-  - User details from `users` collection
-  - Plan details from `subscription_plans` collection
+    - User details from `users` collection
+    - Plan details from `subscription_plans` collection
 - This provides both query efficiency and data consistency
 
 ### **Real-time Updates:**
+
 - Uses Firestore **snapshot listeners** for real-time updates
 - When subscription is created, UI automatically refreshes
 - No manual refresh needed
 
 ### **Date Handling:**
+
 - Uses Firebase `Timestamp` for accurate date storage
 - Calculates `endDate` by adding plan duration to current date
 - Validates subscription by checking if `endDate > current date`
@@ -288,18 +313,22 @@ The implementation uses a **denormalized-relational hybrid** approach:
 ## 📝 Notes
 
 ### **Important Field Names:**
+
 - ✅ Use `endDate` (not `expiryDate`) - matches SubscriptionViewModel
 - ✅ Use `planId` and `userId` for relational links
 - ✅ Use `status: "active"` or `status: "deactivated"`
 
 ### **SubscriptionViewModel Integration:**
+
 The implementation perfectly matches the existing SubscriptionViewModel which:
+
 - Joins `users`, `subscription_plans`, and `subscriptions` collections
 - Filters out admin users
 - Calculates stats (active, deactivated, expiring subscriptions)
 - Provides full relational data to admin dashboard
 
 ### **Future Enhancements:**
+
 - [ ] Add auto-renewal functionality
 - [ ] Add subscription upgrade/downgrade
 - [ ] Add payment history
@@ -311,7 +340,8 @@ The implementation perfectly matches the existing SubscriptionViewModel which:
 
 ## ✅ Status: COMPLETE & READY FOR TESTING
 
-All code changes have been implemented and validated. The subscription system is now fully functional with proper Firebase relational structure.
+All code changes have been implemented and validated. The subscription system is now fully
+functional with proper Firebase relational structure.
 
 **Build Status:** ✅ No compilation errors  
 **Implementation:** ✅ Complete  

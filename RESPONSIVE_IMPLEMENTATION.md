@@ -9,12 +9,14 @@ Your MovieFlix app is now **fully responsive** across all Android devices!
 ## 📱 What This Means
 
 ### Before
+
 - Fixed sizes that looked wrong on tablets
 - Text too small on large screens
 - Wasted space on tablets
 - Cramped layout on small phones
 
-### After  
+### After
+
 - ✅ **Automatically adapts** to any screen size
 - ✅ **Perfect on phones** (2-column grids)
 - ✅ **Optimized for 7" tablets** (3-column grids)
@@ -31,22 +33,22 @@ To see the responsive magic:
 1. **Open Android Studio**
 2. **Run your app** on the emulator
 3. **Change device:**
-   - Tools → Device Manager
-   - Create/select different devices:
-     - Pixel 5 (phone)
-     - Pixel Tablet (7" tablet)
-     - Pixel C (10" tablet)
+    - Tools → Device Manager
+    - Create/select different devices:
+        - Pixel 5 (phone)
+        - Pixel Tablet (7" tablet)
+        - Pixel C (10" tablet)
 4. **Watch the UI adapt!**
 
 ---
 
 ## 📊 Key Changes
 
-| Screen Size | Card Size | Columns | Text Title | Padding |
-|-------------|-----------|---------|------------|---------|
-| **Phone (<600dp)** | 140×200dp | 2 | 20sp | 16dp |
-| **7" Tablet (600-839dp)** | 180×260dp | 3 | 24sp | 24dp |
-| **10" Tablet (≥840dp)** | 220×310dp | 4 | 28sp | 32dp |
+| Screen Size               | Card Size | Columns | Text Title | Padding |
+|---------------------------|-----------|---------|------------|---------|
+| **Phone (<600dp)**        | 140×200dp | 2       | 20sp       | 16dp    |
+| **7" Tablet (600-839dp)** | 180×260dp | 3       | 24sp       | 24dp    |
+| **10" Tablet (≥840dp)**   | 220×310dp | 4       | 28sp       | 32dp    |
 
 ---
 
@@ -63,9 +65,11 @@ To see the responsive magic:
 ## 🔧 Files Modified
 
 ### User Interface
+
 - ✅ `HomeActivity1.kt` - All user screens now responsive
 
 ### Admin Interface
+
 - ✅ `AdminHomeActivity.kt` - Admin home responsive
 - ✅ `ui/admin/MovieManagementScreen.kt` - Ready for responsive updates
 - ✅ `ui/admin/UsersManagementScreen.kt` - Ready for responsive updates
@@ -91,12 +95,14 @@ The system **automatically detects** the screen size and provides the right dime
 ## ✨ Benefits
 
 ### For Users
+
 - 📱 **Better readability** on all devices
 - 🎨 **Optimized layouts** for their screen
 - 👆 **Easier touch targets** on larger devices
 - 🖼️ **More content** visible on tablets
 
 ### For You (Developer)
+
 - 🔄 **One codebase** for all screen sizes
 - 🎯 **Consistent design** across devices
 - 🛠️ **Easy to maintain** and update
@@ -107,18 +113,21 @@ The system **automatically detects** the screen size and provides the right dime
 ## 🎨 Example: Movie Cards
 
 ### Phone View
+
 ```
 [Card 1] [Card 2]
 [Card 3] [Card 4]
 ```
 
 ### 7" Tablet View
+
 ```
 [Card 1] [Card 2] [Card 3]
 [Card 4] [Card 5] [Card 6]
 ```
 
 ### 10" Tablet View
+
 ```
 [Card 1] [Card 2] [Card 3] [Card 4]
 [Card 5] [Card 6] [Card 7] [Card 8]

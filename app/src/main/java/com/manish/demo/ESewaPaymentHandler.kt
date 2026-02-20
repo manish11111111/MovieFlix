@@ -6,7 +6,10 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.f1soft.esewapaymentsdk.EsewaConfiguration
 import com.f1soft.esewapaymentsdk.EsewaPayment
 import com.f1soft.esewapaymentsdk.ui.screens.EsewaPaymentActivity
@@ -17,9 +20,14 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.manish.demo.ui.components.CustomToastCompose
-import okhttp3.*
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
-import java.util.*
+import java.util.Calendar
+import java.util.Date
 
 class ESewaPaymentHandler : ComponentActivity() {
 
@@ -138,6 +146,7 @@ class ESewaPaymentHandler : ComponentActivity() {
                         createSubscriptionInFirebase(message)
                     }
                 }
+
                 Activity.RESULT_CANCELED -> {
                     showCustomToast("Canceled By User")
                     // Delay finishing slightly so user sees the toast
@@ -146,8 +155,10 @@ class ESewaPaymentHandler : ComponentActivity() {
                         finish()
                     }, 1500)
                 }
+
                 EsewaPayment.RESULT_EXTRAS_INVALID -> {
-                    val message = data?.getStringExtra(EsewaPayment.EXTRA_RESULT_MESSAGE) ?: "Invalid Extras"
+                    val message =
+                        data?.getStringExtra(EsewaPayment.EXTRA_RESULT_MESSAGE) ?: "Invalid Extras"
                     Log.e("ESewaPayment", "Error: $message")
                     showCustomToast("eSewa Error: $message")
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -184,11 +195,17 @@ class ESewaPaymentHandler : ComponentActivity() {
                 Log.i("ESewaPayment", "Server Response: $responseBody")
 
                 runOnUiThread {
-                    if (response.isSuccessful && (responseBody.contains("COMPLETE") || responseBody.contains("Success"))) {
+                    if (response.isSuccessful && (responseBody.contains("COMPLETE") || responseBody.contains(
+                            "Success"
+                        ))
+                    ) {
                         showCustomToast("Payment Verified - Creating Subscription...")
                         createSubscriptionInFirebase(originalMessage)
                     } else {
-                        Log.e("ESewaPayment", "Verification Failed. Code: ${response.code}, Body: $responseBody")
+                        Log.e(
+                            "ESewaPayment",
+                            "Verification Failed. Code: ${response.code}, Body: $responseBody"
+                        )
                         showCustomToast("Creating Subscription...")
                         createSubscriptionInFirebase(originalMessage)
                     }
@@ -227,7 +244,8 @@ class ESewaPaymentHandler : ComponentActivity() {
         calendar.add(Calendar.DAY_OF_YEAR, planDuration)
         val endDate = calendar.time
 
-        val transactionId = extractRefId(paymentMessage).ifEmpty { "esewa_${System.currentTimeMillis()}" }
+        val transactionId =
+            extractRefId(paymentMessage).ifEmpty { "esewa_${System.currentTimeMillis()}" }
 
         val subscriptionData = hashMapOf(
             "userId" to userId,
@@ -289,9 +307,13 @@ class ESewaPaymentHandler : ComponentActivity() {
                 calendar.add(Calendar.DAY_OF_YEAR, planDuration)
                 val newEndDate = calendar.time
 
-                val transactionId = extractRefId(paymentMessage).ifEmpty { "esewa_ext_${System.currentTimeMillis()}" }
+                val transactionId =
+                    extractRefId(paymentMessage).ifEmpty { "esewa_ext_${System.currentTimeMillis()}" }
 
-                Log.d("ESewaPayment", "Extending subscription: Old end=$currentEndDate, New end=$newEndDate, Added=$planDuration days")
+                Log.d(
+                    "ESewaPayment",
+                    "Extending subscription: Old end=$currentEndDate, New end=$newEndDate, Added=$planDuration days"
+                )
 
                 // Update subscription with new end date + payment info
                 db.collection("subscriptions").document(subscriptionId)
@@ -356,16 +378,16 @@ class ESewaPaymentHandler : ComponentActivity() {
         isExtension: Boolean
     ) {
         val paymentData = hashMapOf(
-            "userId"         to userId,
+            "userId" to userId,
             "subscriptionId" to subscriptionId,
-            "planId"         to planId,
-            "planName"       to planName,
-            "amount"         to planPrice.toInt(),
-            "method"         to "Esewa",
-            "transactionId"  to transactionId,
-            "type"           to if (isExtension) "extension" else "new",
-            "status"         to "success",
-            "createdAt"      to FieldValue.serverTimestamp()
+            "planId" to planId,
+            "planName" to planName,
+            "amount" to planPrice.toInt(),
+            "method" to "Esewa",
+            "transactionId" to transactionId,
+            "type" to if (isExtension) "extension" else "new",
+            "status" to "success",
+            "createdAt" to FieldValue.serverTimestamp()
         )
 
         db.collection("payments")
@@ -404,9 +426,9 @@ class ESewaPaymentHandler : ComponentActivity() {
         val statsRef = db.collection("Dashboard_stats").document("YbIkiRVdxGQqvza8K85i")
         statsRef.update(
             mapOf(
-                "activeSubs"   to FieldValue.increment(1),
+                "activeSubs" to FieldValue.increment(1),
                 "totalRevenue" to FieldValue.increment(planPrice),
-                "lastUpdated"  to FieldValue.serverTimestamp()
+                "lastUpdated" to FieldValue.serverTimestamp()
             )
         )
     }
@@ -420,7 +442,7 @@ class ESewaPaymentHandler : ComponentActivity() {
         statsRef.update(
             mapOf(
                 "totalRevenue" to FieldValue.increment(planPrice),
-                "lastUpdated"  to FieldValue.serverTimestamp()
+                "lastUpdated" to FieldValue.serverTimestamp()
             )
         )
     }
@@ -461,7 +483,11 @@ class ESewaPaymentHandler : ComponentActivity() {
             }
     }
 
-    private fun finishWithSuccess(message: String, subscriptionCreated: Boolean = false, subscriptionExtended: Boolean = false) {
+    private fun finishWithSuccess(
+        message: String,
+        subscriptionCreated: Boolean = false,
+        subscriptionExtended: Boolean = false
+    ) {
         // Small delay to let the user read the toast before closing
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             val resultIntent = Intent()

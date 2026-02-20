@@ -156,7 +156,8 @@ class UserHomeViewModel : ViewModel() {
                         }
 
                         val activeSub = snapshot?.documents?.firstOrNull { doc ->
-                            val expiryDate = doc.getTimestamp("endDate")?.toDate()  // ✅ Changed from "expiryDate" to "endDate"
+                            val expiryDate = doc.getTimestamp("endDate")
+                                ?.toDate()  // ✅ Changed from "expiryDate" to "endDate"
                             expiryDate != null && expiryDate.after(Date())
                         }
 

@@ -33,7 +33,10 @@ object EmailService {
 
                 val message = MimeMessage(session)
                 message.setFrom(InternetAddress(SENDER_EMAIL))
-                message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail))
+                message.setRecipients(
+                    Message.RecipientType.TO,
+                    InternetAddress.parse(recipientEmail)
+                )
                 message.subject = "Your MovieFlix Verification Code"
                 message.setText("Welcome to MovieFlix!\n\nYour OTP Code is: $otp\n\nPlease enter this code to complete your signup.")
 

@@ -73,13 +73,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.manish.demo.R
 import com.manish.demo.models.remote.TmdbMovieDto
-import com.manish.demo.viewmodel.AdminViewModel
 import com.manish.demo.utils.getResponsiveSizes
+import com.manish.demo.viewmodel.AdminViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,7 +193,11 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = ""; viewModel.searchMovies("") }) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Clear", tint = Color.White)
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = Color.White
+                            )
                         }
                     }
                 },
@@ -229,7 +232,12 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                     .background(Color.DarkGray),
                                 contentScale = ContentScale.Crop
                             )
-                            Text(movie.title, color = Color.White, fontSize = sizes.smallSize, maxLines = 1)
+                            Text(
+                                movie.title,
+                                color = Color.White,
+                                fontSize = sizes.smallSize,
+                                maxLines = 1
+                            )
                         }
                     }
                 }
@@ -242,7 +250,11 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+                            .border(
+                                1.dp,
+                                Color.White.copy(alpha = 0.6f),
+                                RoundedCornerShape(16.dp)
+                            ),
                         colors = CardDefaults.cardColors(containerColor = strongCardBg),
                         shape = RoundedCornerShape(16.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -260,25 +272,60 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                         .clip(RoundedCornerShape(8.dp)),
                                     contentScale = ContentScale.Crop
                                 )
-                                Column(modifier = Modifier.padding(start = sizes.paddingSmall).weight(1f)) {
-                                    Text(movie.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = sizes.subtitleSize)
-                                    Text("Rating: ⭐ ${movie.rating}", color = Color.Yellow, fontSize = sizes.smallSize)
+                                Column(
+                                    modifier = Modifier
+                                        .padding(start = sizes.paddingSmall)
+                                        .weight(1f)
+                                ) {
+                                    Text(
+                                        movie.title,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = sizes.subtitleSize
+                                    )
+                                    Text(
+                                        "Rating: ⭐ ${movie.rating}",
+                                        color = Color.Yellow,
+                                        fontSize = sizes.smallSize
+                                    )
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(sizes.paddingMedium))
-                            Text("Auto-Source Status:", color = Color.White, fontSize = sizes.smallSize)
+                            Text(
+                                "Auto-Source Status:",
+                                color = Color.White,
+                                fontSize = sizes.smallSize
+                            )
 
                             Surface(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .border(
+                                        1.dp,
+                                        Color.White.copy(alpha = 0.3f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
                                 color = Color.Black.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Row(modifier = Modifier.padding(sizes.paddingSmall), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Verified, null, tint = emeraldGreen, modifier = Modifier.size(sizes.iconSmall))
+                                Row(
+                                    modifier = Modifier.padding(sizes.paddingSmall),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Verified,
+                                        null,
+                                        tint = emeraldGreen,
+                                        modifier = Modifier.size(sizes.iconSmall)
+                                    )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Aggregator Source Configured", color = Color.White, fontSize = sizes.captionSize)
+                                    Text(
+                                        "Aggregator Source Configured",
+                                        color = Color.White,
+                                        fontSize = sizes.captionSize
+                                    )
                                 }
                             }
 
@@ -290,11 +337,17 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                     horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall)
                                 ) {
                                     items(details?.genres ?: emptyList()) { genre ->
-                                        Surface(color = emeraldGreen, shape = RoundedCornerShape(6.dp)) {
+                                        Surface(
+                                            color = emeraldGreen,
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
                                             Text(
                                                 genre.name,
                                                 color = Color.White,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                modifier = Modifier.padding(
+                                                    horizontal = 10.dp,
+                                                    vertical = 4.dp
+                                                ),
                                                 fontSize = sizes.smallSize,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -310,34 +363,60 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
                                     isActionLoading = true
                                     val generatedUrl = "https://vidsrc.to/embed/movie/${movie.id}"
                                     val genreNames = details?.genres?.map { it.name } ?: emptyList()
-                                    viewModel.uploadMovie(movie, generatedUrl, genreNames) { success, message ->
-                                        isActionLoading = false; toastMsg = message; showToast = true
-                                        if (success) { selectedMovie = null; searchQuery = "" }
+                                    viewModel.uploadMovie(
+                                        movie,
+                                        generatedUrl,
+                                        genreNames
+                                    ) { success, message ->
+                                        isActionLoading = false; toastMsg = message; showToast =
+                                        true
+                                        if (success) {
+                                            selectedMovie = null; searchQuery = ""
+                                        }
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().padding(top = sizes.paddingSmall).height(sizes.paddingLarge * 2)
-                                    .shadow(elevation = 12.dp, shape = RoundedCornerShape(12.dp), spotColor = emeraldGreen),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = sizes.paddingSmall)
+                                    .height(sizes.paddingLarge * 2)
+                                    .shadow(
+                                        elevation = 12.dp,
+                                        shape = RoundedCornerShape(12.dp),
+                                        spotColor = emeraldGreen
+                                    ),
                                 enabled = details != null && !isActionLoading && !isAlreadyUploaded,
-                                colors = ButtonDefaults.buttonColors(containerColor = emeraldGreen, disabledContainerColor = Color.DarkGray),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = emeraldGreen,
+                                    disabledContainerColor = Color.DarkGray
+                                ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Icon(Icons.Default.CloudDone, null, tint = Color.Black)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     if (isAlreadyUploaded) "ALREADY PUBLISHED" else "CONFIRM & PUBLISH",
-                                    fontWeight = FontWeight.ExtraBold, color = Color.Black, fontSize = sizes.bodySize
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.Black,
+                                    fontSize = sizes.bodySize
                                 )
                             }
 
                             if (isAlreadyUploaded) {
-                                Text("This movie is already in your library", color = Color.White, fontSize = sizes.smallSize, modifier = Modifier.padding(top = 4.dp))
+                                Text(
+                                    "This movie is already in your library",
+                                    color = Color.White,
+                                    fontSize = sizes.smallSize,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
                             }
                         }
                     }
 
                     IconButton(
                         onClick = { selectedMovie = null },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
                     ) {
                         Icon(Icons.Default.Close, "Cancel", tint = Color.White.copy(alpha = 0.5f))
                     }
@@ -346,15 +425,27 @@ fun AddMovieTabContent(viewModel: AdminViewModel) {
         }
 
         // Full-screen loader overlay
-        androidx.compose.animation.AnimatedVisibility(visible = isActionLoading, enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isActionLoading,
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut()
+        ) {
             Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).zIndex(5f),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f))
+                    .zIndex(5f),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = emeraldGreen)
                     Spacer(Modifier.height(sizes.paddingMedium))
-                    Text("Uploading movie to database...", color = Color.White, fontWeight = FontWeight.Medium, fontSize = sizes.bodySize)
+                    Text(
+                        "Uploading movie to database...",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = sizes.bodySize
+                    )
                 }
             }
         }
@@ -376,14 +467,26 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
         title.contains(query) || genre.contains(query)
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Transparent)) {
         Surface(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = sizes.paddingMedium, vertical = sizes.paddingSmall),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = sizes.paddingMedium, vertical = sizes.paddingSmall),
             shape = RoundedCornerShape(12.dp),
             color = Color.White.copy(alpha = 0.08f)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = sizes.paddingMedium)) {
-                Icon(Icons.Default.Search, null, tint = Color(0xFF2ECC71), modifier = Modifier.size(sizes.iconSmall + 4.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = sizes.paddingMedium)
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    null,
+                    tint = Color(0xFF2ECC71),
+                    modifier = Modifier.size(sizes.iconSmall + 4.dp)
+                )
                 Spacer(modifier = Modifier.width(sizes.paddingSmall))
                 BasicTextField(
                     value = searchQuery,
@@ -392,8 +495,17 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
                     modifier = Modifier.weight(1f),
                     cursorBrush = SolidColor(Color(0xFF2ECC71)),
                     decorationBox = { inner ->
-                        Box(modifier = Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.CenterStart) {
-                            if (searchQuery.isEmpty()) Text("Search...", color = Color.White.copy(0.5f), fontSize = sizes.bodySize)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (searchQuery.isEmpty()) Text(
+                                "Search...",
+                                color = Color.White.copy(0.5f),
+                                fontSize = sizes.bodySize
+                            )
                             inner()
                         }
                     }
@@ -401,9 +513,14 @@ fun ManageLibraryTabContent(viewModel: AdminViewModel) {
             }
         }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(sizes.paddingSmall), contentPadding = PaddingValues(sizes.paddingMedium)) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(sizes.paddingSmall),
+            contentPadding = PaddingValues(sizes.paddingMedium)
+        ) {
             items(items = filteredMovies, key = { it["docId"].toString() }) { movie ->
-                TransparentMovieCard(movie = movie, onDeleteClick = { movieToDelete = movie; showDeleteDialog = true })
+                TransparentMovieCard(
+                    movie = movie,
+                    onDeleteClick = { movieToDelete = movie; showDeleteDialog = true })
             }
         }
     }
@@ -459,17 +576,26 @@ fun TransparentMovieCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)),
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(sizes.paddingSmall)) {
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .padding(sizes.paddingSmall)) {
             AsyncImage(
                 model = movie["poster"].toString(),
                 contentDescription = null,
-                modifier = Modifier.size(sizes.posterWidth * 0.8f).clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier
+                    .size(sizes.posterWidth * 0.8f)
+                    .clip(RoundedCornerShape(8.dp)),
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.width(sizes.paddingSmall))
@@ -482,8 +608,17 @@ fun TransparentMovieCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(text = "⭐ $rating", color = Color.Yellow, fontSize = sizes.captionSize, modifier = Modifier.padding(vertical = 4.dp))
-                FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "⭐ $rating",
+                    color = Color.Yellow,
+                    fontSize = sizes.captionSize,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     genresList.forEach { genre ->
                         Surface(
                             color = Color(0xFF2ECC71).copy(alpha = 0.15f),
@@ -502,7 +637,12 @@ fun TransparentMovieCard(
                 }
             }
             IconButton(onClick = onDeleteClick, modifier = Modifier.size(sizes.iconMedium + 8.dp)) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.7f), modifier = Modifier.size(sizes.iconSmall + 4.dp))
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = Color.Red.copy(alpha = 0.7f),
+                    modifier = Modifier.size(sizes.iconSmall + 4.dp)
+                )
             }
         }
     }

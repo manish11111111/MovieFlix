@@ -1,22 +1,26 @@
 package com.manish.demo.viewmodel
 
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.Date
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.manish.demo.models.remote.TmdbMovieDto
 import com.manish.demo.network.RetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class AdminViewModel : ViewModel() {
+
     private val db = FirebaseFirestore.getInstance()
     private val API_KEY = "4afb7f0966d309df22cf149c7ee24726"
 
@@ -33,7 +37,10 @@ class AdminViewModel : ViewModel() {
     private val _userRole = MutableStateFlow<String?>(null)
     val userRole: StateFlow<String?> = _userRole.asStateFlow()
 
+    // Add these missing state variables
     var isLoading = mutableStateOf(false)
+    var loadingMessage = mutableStateOf("") // Add this line - missing declaration
+
     var selectedMovieDetails = mutableStateOf<TmdbMovieDto?>(null)
     private val statsRef = db.collection("Dashboard_stats").document("YbIkiRVdxGQqvza8K85i")
 
@@ -206,4 +213,66 @@ class AdminViewModel : ViewModel() {
         logActivity("Your Password was changed successfully", "security")
     }
 
+    // Add this refreshData function
+    fun refreshData() {
+        fetchExistingMovies()
+        fetchUsers()
+    }
+
+    // Add this to your AdminViewModel (for subscription management)
+    fun extendSubscription(
+        subId: String,
+        userName: String,
+        additionalDays: Int,
+        currentPrice: Int
+    ) {
+        viewModelScope.launch {
+            isLoading.value = true
+            loadingMessage.value = "Extending subscription..."
+
+            val db = FirebaseFirestore.getInstance()
+            val subRef = db.collection("subscriptions").document(subId)
+
+            db.runTransaction { transaction ->
+                val snapshot = transaction.get(subRef)
+                val currentEndDate = snapshot.getTimestamp("endDate")?.toDate() ?: Date()
+
+                // Calculate new end date
+                val calendar = Calendar.getInstance()
+                calendar.time = currentEndDate
+                calendar.add(Calendar.DAY_OF_YEAR, additionalDays)
+                val newEndDate = calendar.time
+
+                // Update the subscription
+                transaction.update(subRef, "endDate", Timestamp(newEndDate))
+                transaction.update(subRef, "status", "active")
+                transaction.update(subRef, "updatedAt", Timestamp.now())
+
+                // Create a payment record for this extension
+                val paymentData = hashMapOf(
+                    "subscriptionId" to subId,
+                    "userId" to snapshot.getString("userId"),
+                    "userName" to userName,
+                    "amount" to currentPrice,
+                    "type" to "extension",
+                    "days" to additionalDays,
+                    "paymentMethod" to "Admin Extension",
+                    "createdAt" to Timestamp.now()
+                )
+
+                // Add to payments collection
+                val paymentRef = db.collection("payments").document()
+                transaction.set(paymentRef, paymentData)
+
+            }.addOnSuccessListener {
+                refreshData()
+                isLoading.value = false
+                loadingMessage.value = ""
+            }.addOnFailureListener { e ->
+                isLoading.value = false
+                loadingMessage.value = ""
+                Log.e("AdminVM", "Extension error: ${e.message}")
+            }
+        }
+    }
 }

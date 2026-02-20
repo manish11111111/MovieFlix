@@ -124,6 +124,7 @@ import com.manish.demo.ui.admin.UsersManagementScreen
 import com.manish.demo.ui.components.CustomToastCompose
 import com.manish.demo.ui.components.ImageSelectionDialog
 import com.manish.demo.ui.theme.DemoTheme
+import com.manish.demo.utils.getResponsiveSizes
 import com.manish.demo.viewmodel.AdminViewModel
 import com.manish.demo.viewmodel.SubscriptionViewModel
 import kotlinx.coroutines.delay
@@ -132,7 +133,6 @@ import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.manish.demo.utils.getResponsiveSizes
 
 // --- DATA MODELS & CONSTANTS ---
 data class DashboardStats(
@@ -225,7 +225,9 @@ class DashboardViewModel : ViewModel() {
         db.collection("Dashboard_stats")
             .limit(1)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) { Log.e("DASH_DEBUG", "Stats Error: ${error.message}"); return@addSnapshotListener }
+                if (error != null) {
+                    Log.e("DASH_DEBUG", "Stats Error: ${error.message}"); return@addSnapshotListener
+                }
                 val doc = snapshot?.documents?.firstOrNull() ?: return@addSnapshotListener
                 _stats.value = _stats.value.copy(
                     totalUsers = (doc.get("totalUsers") as? Number)?.toInt() ?: 0,
@@ -237,7 +239,9 @@ class DashboardViewModel : ViewModel() {
         // 2. PLANS listener — keeps planPriceCache fresh, then recalculates revenue
         db.collection("subscription_plans")
             .addSnapshotListener { snapshot, error ->
-                if (error != null) { Log.e("DASH_DEBUG", "Plans Error: ${error.message}"); return@addSnapshotListener }
+                if (error != null) {
+                    Log.e("DASH_DEBUG", "Plans Error: ${error.message}"); return@addSnapshotListener
+                }
                 planPriceCache.clear()
                 snapshot?.documents?.forEach { d ->
                     val price = (d.get("price") as? Number)?.toDouble() ?: 0.0
@@ -249,7 +253,9 @@ class DashboardViewModel : ViewModel() {
         // 3. SUBSCRIPTIONS listener — keeps subsCache fresh, then recalculates revenue + chart
         db.collection("subscriptions")
             .addSnapshotListener { snapshot, error ->
-                if (error != null) { Log.e("DASH_DEBUG", "Subs Error: ${error.message}"); return@addSnapshotListener }
+                if (error != null) {
+                    Log.e("DASH_DEBUG", "Subs Error: ${error.message}"); return@addSnapshotListener
+                }
                 subsCache = snapshot?.documents ?: emptyList()
                 recalculate()
             }
@@ -716,9 +722,11 @@ fun AdminApp(
     val gradient =
         Brush.linearGradient(listOf(Color(0xFF450457), Color(0xFF120017), Color(0xFF000000)))
 
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(gradient)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(gradient)
+    ) {
         CustomToastCompose(
             message = toastMessage,
             showToast = showCustomToast,
@@ -975,7 +983,12 @@ fun AdminDashboardContent(
         item {
             Column(modifier = Modifier.padding(top = 12.dp)) {
                 Text("Welcome back,", color = Color.White.copy(0.6f), fontSize = sizes.bodySize)
-                Text(adminName, color = Color.White, fontSize = sizes.titleLargeSize, fontWeight = FontWeight.Bold)
+                Text(
+                    adminName,
+                    color = Color.White,
+                    fontSize = sizes.titleLargeSize,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
@@ -992,7 +1005,12 @@ fun AdminDashboardContent(
                     DashboardStatCard(
                         Modifier.weight(1f),
                         "Revenue",
-                        "₹${if (stats.totalRevenue >= 1000) String.format("%.2f", stats.totalRevenue / 1000) + "K" else String.format("%.2f", stats.totalRevenue)}",
+                        "₹${
+                            if (stats.totalRevenue >= 1000) String.format(
+                                "%.2f",
+                                stats.totalRevenue / 1000
+                            ) + "K" else String.format("%.2f", stats.totalRevenue)
+                        }",
                         Icons.Default.AttachMoney,
                         Color.Yellow
                     )
@@ -1069,10 +1087,26 @@ fun AdminDashboardContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                DashboardActionIcon("Users", Icons.Default.People, dashEmerald) { onNavigate(AdminDestinations.USERS) }
-                DashboardActionIcon("Movies", Icons.Default.VideoLibrary, Color.Cyan) { onNavigate(AdminDestinations.MOVIES) }
-                DashboardActionIcon("Subs", Icons.Default.CardMembership, Color.Yellow) { onNavigate(AdminDestinations.SUBSCRIPTIONS) }
-                DashboardActionIcon("Profile", Icons.Default.AccountCircle, Color.White) { onNavigate(AdminDestinations.PROFILE) }
+                DashboardActionIcon("Users", Icons.Default.People, dashEmerald) {
+                    onNavigate(
+                        AdminDestinations.USERS
+                    )
+                }
+                DashboardActionIcon("Movies", Icons.Default.VideoLibrary, Color.Cyan) {
+                    onNavigate(
+                        AdminDestinations.MOVIES
+                    )
+                }
+                DashboardActionIcon(
+                    "Subs",
+                    Icons.Default.CardMembership,
+                    Color.Yellow
+                ) { onNavigate(AdminDestinations.SUBSCRIPTIONS) }
+                DashboardActionIcon(
+                    "Profile",
+                    Icons.Default.AccountCircle,
+                    Color.White
+                ) { onNavigate(AdminDestinations.PROFILE) }
             }
         }
 
@@ -1133,7 +1167,12 @@ fun DashboardStatCard(
                 contentAlignment = Alignment.Center
             ) { Icon(icon, null, Modifier.size(sizes.iconSmall), color) }
             Spacer(Modifier.height(sizes.paddingSmall))
-            Text(value, color = Color.White, fontSize = sizes.titleSize, fontWeight = FontWeight.Bold)
+            Text(
+                value,
+                color = Color.White,
+                fontSize = sizes.titleSize,
+                fontWeight = FontWeight.Bold
+            )
             Text(title, color = Color.White.copy(0.5f), fontSize = sizes.smallSize)
         }
     }
@@ -1166,7 +1205,8 @@ fun AdminProfileContent(
 ) {
     val context = LocalContext.current
     val sizes = getResponsiveSizes()
-    val profileImageSize = sizes.posterWidth + 20.dp // COMPACT: 120dp | MEDIUM: 150dp | EXPANDED: 180dp
+    val profileImageSize =
+        sizes.posterWidth + 20.dp // COMPACT: 120dp | MEDIUM: 150dp | EXPANDED: 180dp
 
     Column(
         modifier = Modifier
@@ -1205,7 +1245,11 @@ fun AdminProfileContent(
                     modifier = Modifier
                         .size(sizes.iconMedium + 6.dp)
                         .clip(CircleShape)
-                        .background(if (isUploadingImage) Color.DarkGray.copy(0.5f) else Color.Black.copy(0.5f))
+                        .background(
+                            if (isUploadingImage) Color.DarkGray.copy(0.5f) else Color.Black.copy(
+                                0.5f
+                            )
+                        )
                         .clickable { if (!isUploadingImage) onEditImageClicked() }
                         .padding(4.dp)
                 )
@@ -1228,9 +1272,19 @@ fun AdminProfileContent(
         }
 
         Spacer(Modifier.height(sizes.paddingMedium))
-        Text(adminName, fontSize = sizes.titleSize, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(
+            adminName,
+            fontSize = sizes.titleSize,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.AdminPanelSettings, null, tint = Color.Cyan, modifier = Modifier.size(sizes.iconSmall))
+            Icon(
+                Icons.Default.AdminPanelSettings,
+                null,
+                tint = Color.Cyan,
+                modifier = Modifier.size(sizes.iconSmall)
+            )
             Spacer(Modifier.width(4.dp))
             Text("Administrator", fontSize = sizes.bodySize, color = Color.LightGray)
         }
@@ -1252,13 +1306,30 @@ fun AdminProfileContent(
                         .clickable { if (!isUploadingImage) onPasswordChangeClicked() }
                         .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Lock, null, tint = if (isUploadingImage) Color.Gray else Color.White, modifier = Modifier.size(sizes.iconMedium))
+                    Icon(
+                        Icons.Default.Lock,
+                        null,
+                        tint = if (isUploadingImage) Color.Gray else Color.White,
+                        modifier = Modifier.size(sizes.iconMedium)
+                    )
                     Spacer(Modifier.width(sizes.paddingMedium))
                     Column(Modifier.weight(1f)) {
-                        Text("Password", color = if (isUploadingImage) Color.Gray else Color.White, fontSize = sizes.bodySize)
-                        Text("Last updated: $passwordLastUpdated", fontSize = sizes.captionSize, color = if (isUploadingImage) Color.DarkGray else Color.LightGray)
+                        Text(
+                            "Password",
+                            color = if (isUploadingImage) Color.Gray else Color.White,
+                            fontSize = sizes.bodySize
+                        )
+                        Text(
+                            "Last updated: $passwordLastUpdated",
+                            fontSize = sizes.captionSize,
+                            color = if (isUploadingImage) Color.DarkGray else Color.LightGray
+                        )
                     }
-                    Icon(Icons.Default.ChevronRight, null, tint = if (isUploadingImage) Color.Gray else Color.White)
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        null,
+                        tint = if (isUploadingImage) Color.Gray else Color.White
+                    )
                 }
             }
         }
@@ -1274,12 +1345,23 @@ fun AdminProfileContent(
                 }
             },
             enabled = !isUploadingImage,
-            modifier = Modifier.fillMaxWidth().height(sizes.paddingLarge * 2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sizes.paddingLarge * 2),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = if (isUploadingImage) 0.3f else 0.7f))
         ) {
-            Icon(Icons.Default.Logout, null, tint = if (isUploadingImage) Color.LightGray else Color.White)
+            Icon(
+                Icons.Default.Logout,
+                null,
+                tint = if (isUploadingImage) Color.LightGray else Color.White
+            )
             Spacer(Modifier.width(8.dp))
-            Text("Logout", color = if (isUploadingImage) Color.LightGray else Color.White, fontWeight = FontWeight.Bold, fontSize = sizes.bodySize)
+            Text(
+                "Logout",
+                color = if (isUploadingImage) Color.LightGray else Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = sizes.bodySize
+            )
         }
     }
 }

@@ -92,6 +92,7 @@ fun getResponsiveSizes(): ResponsiveSizes {
             iconSmall = 16.dp,
             gridColumns = 2
         )
+
         WindowSize.MEDIUM -> ResponsiveSizes(
             movieCardWidth = 180.dp,
             movieCardHeight = 260.dp,
@@ -112,6 +113,7 @@ fun getResponsiveSizes(): ResponsiveSizes {
             iconSmall = 20.dp,
             gridColumns = 3
         )
+
         WindowSize.EXPANDED -> ResponsiveSizes(
             movieCardWidth = 220.dp,
             movieCardHeight = 310.dp,

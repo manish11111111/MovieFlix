@@ -2,7 +2,8 @@
 
 ## ✅ What Has Been Done
 
-I've successfully integrated eSewa payment gateway into your MovieFlix app! Here's what's been implemented:
+I've successfully integrated eSewa payment gateway into your MovieFlix app! Here's what's been
+implemented:
 
 ### Files Created/Modified:
 
@@ -27,11 +28,13 @@ I've successfully integrated eSewa payment gateway into your MovieFlix app! Here
 You need to download the official eSewa Android SDK:
 
 #### Option A: From eSewa Developer Portal
+
 1. Visit: https://developer.esewa.com.np/#/download
 2. Download the **Android SDK** (.aar file)
 3. It should be named something like: `eSewaSdk.aar`
 
 #### Option B: Contact eSewa Support
+
 - Email: support@esewa.com.np
 - Request the Android SDK for integration
 
@@ -61,6 +64,7 @@ You need to download the official eSewa Android SDK:
 After adding the SDK, open `ESewaPaymentHandler.kt` and uncomment the payment code:
 
 Find this section (around line 47):
+
 ```kotlin
 // ⚠️ IMPORTANT: Uncomment this after adding eSewa SDK .aar file
 
@@ -111,13 +115,16 @@ These are already configured in `ESewaPaymentHandler.kt`.
 ## 📱 What Happens After Payment
 
 ### Successful Payment:
+
 - ✅ Subscription document created in Firestore
-- ✅ Fields: userId, planId, planName, price, duration, paymentMethod, transactionId, status, startDate, expiryDate
+- ✅ Fields: userId, planId, planName, price, duration, paymentMethod, transactionId, status,
+  startDate, expiryDate
 - ✅ User's subscription becomes "Active"
 - ✅ Welcome dialog no longer shows
 - ✅ User can watch full movies
 
 ### Failed/Cancelled Payment:
+
 - ❌ Toast shows "Payment cancelled" or "Payment failed"
 - ❌ No subscription created
 - ❌ User returns to Subscribe tab
@@ -132,7 +139,8 @@ These are already configured in `ESewaPaymentHandler.kt`.
 
 ### Problem: Gradle sync fails with "Cannot find eSewaSdk"
 
-**Solution**: 
+**Solution**:
+
 - Check that the file is in `app/libs/eSewaSdk.aar`
 - Check the filename is exactly `eSewaSdk.aar` (case-sensitive)
 - Try **Build → Clean Project** → **Build ��� Rebuild Project**
@@ -140,13 +148,15 @@ These are already configured in `ESewaPaymentHandler.kt`.
 ### Problem: "Unresolved reference: ESewaConfiguration"
 
 **Solution**: The SDK is not properly added. Verify:
+
 1. File is in correct location
 2. Gradle sync completed successfully
 3. Restart Android Studio
 
 ### Problem: Payment screen doesn't open
 
-**Solution**: 
+**Solution**:
+
 1. Check you uncommented the code in `ESewaPaymentHandler.kt`
 2. Check Logcat for errors
 3. Verify test credentials are correct
@@ -183,12 +193,14 @@ After eSewa is working:
 
 ## 📞 Support
 
-**eSewa**: 
+**eSewa**:
+
 - Developer Portal: https://developer.esewa.com.np
 - Email: support@esewa.com.np
 - Phone: +977-1-4510052
 
 **Khalti**:
+
 - Developer Portal: https://docs.khalti.com
 - Email: support@khalti.com
 - Phone: +977-1-5970002
@@ -218,6 +230,7 @@ After eSewa is working:
 Good luck with your eSewa integration! 🚀
 
 Let me know if you need help with:
+
 - Khalti integration
 - Payment verification
 - Backend setup

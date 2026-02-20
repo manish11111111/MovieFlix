@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Cake
-import com.manish.demo.utils.getResponsiveSizes
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -67,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.manish.demo.ui.components.CustomToastCompose
+import com.manish.demo.utils.getResponsiveSizes
 import com.manish.demo.viewmodel.AdminViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,9 +110,11 @@ fun UsersManagementScreen(
             showToast = showToast,
             onDismiss = { showToast = false })
 
-        Column(modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -286,10 +288,14 @@ fun UserManagementCard(
     val decodedBitmap = remember(photoBase64) {
         if (photoBase64.isNotEmpty()) {
             try {
-                val cleanStr = if (photoBase64.contains(",")) photoBase64.split(",")[1] else photoBase64
+                val cleanStr =
+                    if (photoBase64.contains(",")) photoBase64.split(",")[1] else photoBase64
                 val bytes = android.util.Base64.decode(cleanStr, android.util.Base64.DEFAULT)
-                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            } catch (e: Exception) { null }
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ?.asImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
         } else null
     }
 
@@ -303,23 +309,46 @@ fun UserManagementCard(
     ) {
         Column(modifier = Modifier.padding(sizes.paddingMedium)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(avatarSize).clickable { decodedBitmap?.let { onPhotoClick(it) } }) {
+                Box(
+                    modifier = Modifier
+                        .size(avatarSize)
+                        .clickable { decodedBitmap?.let { onPhotoClick(it) } }) {
                     if (decodedBitmap != null) {
                         Image(
                             bitmap = decodedBitmap,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize().clip(CircleShape).border(1.dp, Color(0xFF2ECC71), CircleShape),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .border(1.dp, Color(0xFF2ECC71), CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Box(modifier = Modifier.fillMaxSize().background(Color.Gray.copy(0.3f), CircleShape), contentAlignment = Alignment.Center) {
-                            Text(name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = sizes.subtitleSize)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Gray.copy(0.3f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                name.take(1).uppercase(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = sizes.subtitleSize
+                            )
                         }
                     }
                 }
 
-                Column(modifier = Modifier.weight(1f).padding(start = sizes.paddingSmall)) {
-                    Text(name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = sizes.subtitleSize)
+                Column(modifier = Modifier
+                    .weight(1f)
+                    .padding(start = sizes.paddingSmall)) {
+                    Text(
+                        name,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = sizes.subtitleSize
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(email, color = Color.LightGray, fontSize = sizes.captionSize, maxLines = 1)
                 }
@@ -329,16 +358,44 @@ fun UserManagementCard(
                         IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Default.MoreVert, null, tint = Color.White)
                         }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }, modifier = Modifier.background(Color(0xFF1E1E1E))) {
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(Color(0xFF1E1E1E))
+                        ) {
                             DropdownMenuItem(
-                                text = { Text("Make Admin", color = if (isBanned) Color.Gray else Color(0xFF2196F3), fontSize = sizes.bodySize) },
-                                leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null, tint = if (isBanned) Color.Gray else Color(0xFF2196F3)) },
+                                text = {
+                                    Text(
+                                        "Make Admin",
+                                        color = if (isBanned) Color.Gray else Color(0xFF2196F3),
+                                        fontSize = sizes.bodySize
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.AdminPanelSettings,
+                                        null,
+                                        tint = if (isBanned) Color.Gray else Color(0xFF2196F3)
+                                    )
+                                },
                                 enabled = !isBanned,
                                 onClick = { showMenu = false; onRequestAdminToggle() }
                             )
                             DropdownMenuItem(
-                                text = { Text(if (isBanned) "Unban User" else "Ban User", color = if (isBanned) Color.Green else Color.Red, fontSize = sizes.bodySize) },
-                                leadingIcon = { Icon(Icons.Default.Block, null, tint = if (isBanned) Color.Green else Color.Red) },
+                                text = {
+                                    Text(
+                                        if (isBanned) "Unban User" else "Ban User",
+                                        color = if (isBanned) Color.Green else Color.Red,
+                                        fontSize = sizes.bodySize
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Block,
+                                        null,
+                                        tint = if (isBanned) Color.Green else Color.Red
+                                    )
+                                },
                                 onClick = { showMenu = false; onRequestBanToggle() }
                             )
                         }
@@ -349,17 +406,36 @@ fun UserManagementCard(
             Spacer(modifier = Modifier.height(sizes.paddingSmall))
             HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
-            Row(modifier = Modifier.fillMaxWidth().padding(top = sizes.paddingSmall), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = sizes.paddingSmall),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 InfoBlock("PHONE", phone, Icons.Default.Phone, sizes)
                 InfoBlock("DOB", dob, Icons.Default.Cake, sizes)
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = sizes.paddingSmall), color = Color.White.copy(alpha = 0.1f))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = sizes.paddingSmall),
+                color = Color.White.copy(alpha = 0.1f)
+            )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Column {
-                    Text("ROLE", color = Color.Gray, fontSize = sizes.smallSize, fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(sizes.iconSmall + 8.dp)) {
+                    Text(
+                        "ROLE",
+                        color = Color.Gray,
+                        fontSize = sizes.smallSize,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.height(sizes.iconSmall + 8.dp)
+                    ) {
                         Icon(
                             if (isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person,
                             null,
@@ -367,11 +443,21 @@ fun UserManagementCard(
                             modifier = Modifier.size(sizes.iconSmall)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(role.uppercase(), color = Color.White, fontSize = sizes.captionSize, fontWeight = FontWeight.Medium)
+                        Text(
+                            role.uppercase(),
+                            color = Color.White,
+                            fontSize = sizes.captionSize,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("STATUS", color = Color.Gray, fontSize = sizes.smallSize, fontWeight = FontWeight.Bold)
+                    Text(
+                        "STATUS",
+                        color = Color.Gray,
+                        fontSize = sizes.smallSize,
+                        fontWeight = FontWeight.Bold
+                    )
                     StatusChip(
                         text = if (isBanned) "BANNED" else "ACTIVE",
                         color = if (isBanned) Color.Red else Color(0xFF2ECC71),
@@ -384,11 +470,24 @@ fun UserManagementCard(
 }
 
 @Composable
-fun InfoBlock(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, sizes: com.manish.demo.utils.ResponsiveSizes) {
+fun InfoBlock(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    sizes: com.manish.demo.utils.ResponsiveSizes
+) {
     Column {
         Text(label, color = Color.Gray, fontSize = sizes.smallSize, fontWeight = FontWeight.Bold)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-            Icon(icon, null, modifier = Modifier.size(sizes.iconSmall - 4.dp), tint = Color(0xFF2ECC71))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 2.dp)
+        ) {
+            Icon(
+                icon,
+                null,
+                modifier = Modifier.size(sizes.iconSmall - 4.dp),
+                tint = Color(0xFF2ECC71)
+            )
             Spacer(Modifier.width(4.dp))
             Text(value, color = Color.White, fontSize = sizes.captionSize)
         }
