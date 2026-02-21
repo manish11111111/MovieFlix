@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Strong Emerald Green Circle -->
+    <path
+        android:fillColor="#00A651"
+        android:pathData="M50,50m-45,0a45,45 0,1 1,90 0a45,45 0,1 1,-90 0" />
+
+    <!-- Centered White "e" -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M50,34
+            c-9,0 -16,7 -16,16
+            s7,16 16,16
+            c6,0 10,-3 13,-6
+            l-5,-3
+            c-2,2 -4,3 -8,3
+            c-5,0 -9,-4 -9,-9
+            h22
+            c0,-1 0,-1 0,-2
+            c0,-9 -7,-16 -16,-16
+            z
+            M42,47
+            c1,-3 4,-6 8,-6
+            c4,0 7,3 8,6
+            h-16
+        " />
+</vector>

@@ -8,7 +8,7 @@ import android.content.IntentFilter
 import android.media.AudioManager
 import java.util.Calendar
 import com.google.firebase.firestore.DocumentSnapshot
-// Compose Core
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -2298,7 +2298,7 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
         item {
             Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(emeraldGreen.copy(0.12f), Color.Transparent))).padding(24.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.CardMembership, null, tint = if (hasActiveSubscription) emeraldGreen else goldColor, modifier = Modifier.size(48.dp))
+                    Icon(Icons.Default.Stars, null, tint = if (hasActiveSubscription) emeraldGreen else goldColor, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(12.dp))
                     Text(if (hasActiveSubscription) "Active Subscription" else "Premium Plans", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 }
@@ -2335,8 +2335,14 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
         } else {
             item { Text("Available Plans", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp)) }
             items(subscriptionPlans) { plan ->
-                SubscriptionPlanCard(plan = plan, isActive = false, onEsewaClick = { launchEsewa(plan) }, onKhaltiClick = {}, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-            }
+                val popular = plan.price == subscriptionPlans.maxOfOrNull { it.price }
+                SubscriptionPlanCard(
+                    plan = plan,
+                    isActive = false,
+                    isMostPopular = popular,
+                    onEsewaClick = { launchEsewa(plan) },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )            }
         }
     }
 
@@ -2371,268 +2377,96 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
 fun SubscriptionPlanCard(
     plan: SubscriptionPlan,
     isActive: Boolean,
+    isMostPopular: Boolean = false,
     onEsewaClick: () -> Unit,
-    onKhaltiClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Colors from the logo image
+    val esewaGreen = Color(0xFF60BB46)
+    val esewaNavy = Color.White// The dark color of "Sewa" text
     val emeraldGreen = Color(0xFF2ECC71)
-    val goldColor = Color(0xFFFFD700)
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = if (isActive) 6.dp else 3.dp,
-                shape = RoundedCornerShape(12.dp),
-                spotColor = if (isActive) emeraldGreen else Color.Transparent
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        shape = RoundedCornerShape(12.dp)
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+        border = BorderStroke(
+            width = if (isMostPopular) 1.5.dp else 1.dp,
+            brush = SolidColor(if (isMostPopular) emeraldGreen else Color.White.copy(alpha = 0.15f))
+        )
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    if (isActive) {
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                emeraldGreen.copy(0.2f),
-                                emeraldGreen.copy(0.12f),
-                                Color(0xFF1a1a2e).copy(0.8f)
-                            )
-                        )
-                    } else {
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(0.08f),
-                                Color.White.copy(0.04f),
-                                Color(0xFF1a1a2e).copy(0.5f)
-                            )
-                        )
-                    }
-                )
-                .border(
-                    width = if (isActive) 1.5.dp else 1.dp,
-                    brush = if (isActive) {
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                emeraldGreen.copy(0.5f),
-                                emeraldGreen,
-                                emeraldGreen.copy(0.5f)
-                            )
-                        )
-                    } else {
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.White.copy(0.1f),
-                                Color.White.copy(0.15f),
-                                Color.White.copy(0.1f)
-                            )
-                        )
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .padding(14.dp)
+                .padding(12.dp) // Compact padding
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
-                // Header Row - Plan Name & Badge
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = plan.name,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    if (isActive) {
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    emeraldGreen,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.CheckCircle,
-                                    contentDescription = "Active",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(Modifier.width(3.dp))
-                                Text(
-                                    "ACTIVE",
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.8.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                // Price Section
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "₹",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isActive) emeraldGreen else goldColor
-                    )
-                    Text(
-                        text = "${plan.price}",
-                        fontSize = 30.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (isActive) emeraldGreen else goldColor
+            // --- LEFT SIDE: PLAN DETAILS ---
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Stars,
+                        contentDescription = null,
+                        tint = Color(0xFFFFD700),
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(6.dp))
-                    // Duration
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = Color.White.copy(0.6f),
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(Modifier.width(3.dp))
-                        Text(
-                            text = "${plan.duration} days",
-                            fontSize = 11.sp,
-                            color = Color.White.copy(0.6f),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    Text(
+                        text = plan.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
-
-                Spacer(Modifier.height(10.dp))
-
-                // Divider
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.White.copy(0.15f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-
-                Spacer(Modifier.height(10.dp))
-
-                // Description
                 Text(
-                    text = plan.description,
-                    fontSize = 12.sp,
-                    color = Color.White.copy(0.8f),
-                    lineHeight = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    text = "₹${plan.price} / ${plan.duration} Days",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = emeraldGreen
                 )
+            }
 
-                Spacer(Modifier.height(12.dp))
+            // --- RIGHT SIDE: THE AUTHENTIC ESEWA BUTTON ---
+            Button(
+                onClick = onEsewaClick,
+                modifier = Modifier
+                    .height(40.dp)
+                    .wrapContentWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor =emeraldGreen), // White button background
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Pay with ",
+                        fontSize = 11.sp,
+                        color = esewaNavy,
+                        fontWeight = FontWeight.Medium
+                    )
 
-                // Payment Buttons Row
-                if (!isActive) {
-                    // e-Sewa Button
-                    Button(
-                        onClick = onEsewaClick,
-                        modifier = Modifier
-                            .wrapContentWidth()
-                            .height(44.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF60BB46)
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 2.dp,
-                            pressedElevation = 4.dp
-                        )
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                Icons.Default.AccountBalance,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "Pay with eSewa",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
-                } else {
-                    // Current Plan Button (Disabled)
-                    Button(
-                        onClick = {},
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp),
-                        enabled = false,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Gray.copy(0.3f),
-                            disabledContainerColor = Color.Gray.copy(0.3f)
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 0.dp,
-                            pressedElevation = 0.dp,
-                            disabledElevation = 0.dp
-                        )
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color.White.copy(0.5f),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "Current Plan",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color.White.copy(0.5f)
-                            )
-                        }
-                    }
+                    // The Green "e" Circle Logo
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_esewa_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+
+                    Text(
+                        text = "Sewa",
+                        fontSize = 13.sp,
+                        color = esewaNavy, // The dark navy color
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
     }
 }
+
 
 // ✅ COLLABORATIVE FILTERING: Users Also Watched Section
 @Composable
