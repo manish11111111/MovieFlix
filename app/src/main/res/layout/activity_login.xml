@@ -73,20 +73,24 @@
         android:layout_marginTop="@dimen/login_form_margin_top"
         app:layout_constraintTop_toBottomOf="@id/headerSection">
 
-        <!-- ATTRACTIVE OUTLINED EMAIL -->
+        <!-- EMAIL INPUT -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilEmail"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Email Address"
+           app:boxStrokeColor="@color/til_stroke_color"
+        app:boxStrokeWidth="1.5dp"
+        app:boxStrokeWidthFocused="2dp"
             app:startIconDrawable="@drawable/ic_email"
             app:startIconTint="#FFFFFF"
             app:boxCornerRadiusTopStart="15dp"
             app:boxCornerRadiusTopEnd="15dp"
             app:boxCornerRadiusBottomStart="15dp"
             app:boxCornerRadiusBottomEnd="15dp"
-            android:textColorHint="#FFFFFF">
+            android:textColorHint="#CCFFFFFF"
+            app:hintTextColor="#FFFFFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etEmail"
@@ -96,7 +100,7 @@
                 android:textColor="#FFFFFF" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- ATTRACTIVE OUTLINED PASSWORD -->
+        <!-- PASSWORD INPUT -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilPassword"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -104,6 +108,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:hint="Password"
+            app:boxStrokeColor="@color/til_stroke_color"
+            app:boxStrokeWidth="1.5dp"
+            app:boxStrokeWidthFocused="2dp"
             app:startIconDrawable="@drawable/ic_lock"
             app:startIconTint="#FFFFFF"
             app:endIconMode="password_toggle"
@@ -112,7 +119,9 @@
             app:boxCornerRadiusTopEnd="15dp"
             app:boxCornerRadiusBottomStart="15dp"
             app:boxCornerRadiusBottomEnd="15dp"
-            android:textColorHint="#FFFFFF">
+            android:textColorHint="#CCFFFFFF"
+
+            app:hintTextColor="#FFFFFF">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etPassword"
@@ -126,7 +135,7 @@
             android:id="@+id/tvForgotPassword"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/forgot_password"
+            android:text="Forgot Password?"
             android:textColor="#FFFFFF"
             android:layout_marginTop="12dp"
             android:layout_gravity="end"
@@ -138,7 +147,7 @@
             android:id="@+id/btnLogin"
             android:layout_width="match_parent"
             android:layout_height="@dimen/login_button_height"
-            android:layout_marginTop="30dp"
+            android:layout_marginTop="24dp"
             android:text="LOG IN"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
@@ -148,7 +157,53 @@
             app:backgroundTint="@null"
             app:elevation="8dp" />
 
-        <!-- PROGRESS BAR - MOVED INSIDE formContainer -->
+        <!-- OR DIVIDER -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="#4DFFFFFF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:text="OR"
+                android:textColor="#B3B3B3"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1"
+                android:background="#4DFFFFFF" />
+        </LinearLayout>
+
+        <!-- GOOGLE LOGIN BUTTON (Outlined Style) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnGoogleLogin"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/login_button_height"
+            android:layout_marginTop="20dp"
+            android:text="Continue with Google"
+            android:textColor="#FFFFFF"
+            android:textAllCaps="false"
+            app:cornerRadius="15dp"
+            app:strokeColor="#FFFFFF"
+            app:strokeWidth="1dp"
+            app:icon="@drawable/ic_google"
+            app:iconGravity="textStart"
+            app:iconTint="@null" />
+
         <ProgressBar
             android:id="@+id/loginProgressBar"
             android:layout_width="40dp"
@@ -161,6 +216,7 @@
 
     </LinearLayout>
 
+    <!-- FOOTER -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -286,11 +286,17 @@ private fun SubscriptionContent(
                 val isExpired = status == "expired"
                 val isExpiring = sub["isExpiring"] as? Boolean ?: false
 
+                // Theme Color Logic
+                val themeColor = when {
+                    isExpired -> Color.Red
+                    isExpiring -> Color(0xFFFF9800) // Orange
+                    else -> emeraldGreen
+                }
+
                 val date = (sub["endDate"] as? Timestamp)?.toDate()
                 val totalPaid = (sub["totalAmountPaid"] as? Double) ?: 0.0
-                val history = sub["paymentHistory"] as? List<Map<String, Any>> ?: emptyList()
 
-                // Image logic
+                // Profile Image logic (Same as your original)
                 val photoBase64 = sub["profileImage"]?.toString() ?: ""
                 val decodedBitmap = remember(photoBase64) {
                     if (photoBase64.isNotEmpty()) {
@@ -326,24 +332,34 @@ private fun SubscriptionContent(
                                 Text(sub["fullName"].toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Text(sub["email"].toString(), color = Color.White.copy(0.6f), fontSize = 11.sp)
                             }
-                            StatusPill(status = status)
+                            // Custom Status Pill
+                            StatusPill(status = if (isExpiring) "EXPIRING" else status)
                         }
 
                         Spacer(Modifier.height(12.dp))
 
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
                             Column {
-                                Text("PHONE", color = Color.White.copy(0.4f), fontSize = 9.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Phone, null, Modifier.size(10.dp), Color.White.copy(0.4f))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("PHONE", color = Color.White.copy(0.4f), fontSize = 9.sp)
+                                }
                                 Text(sub["phone"].toString(), color = Color.White, fontSize = 12.sp)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(if (isExpired) "EXPIRED" else if (isExpiring) "EXPIRING SOON" else "EXPIRES",
-                                    color = if (isExpired) Color.Red else if (isExpiring) Color(0xFFFF9800) else Color.White.copy(0.4f),
-                                    fontSize = 9.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Timer, null, Modifier.size(10.dp), themeColor)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(if (isExpired) "EXPIRED" else if (isExpiring) "EXPIRING SOON" else "EXPIRES",
+                                        color = themeColor.copy(0.7f),
+                                        fontSize = 9.sp)
+                                }
                                 Text(
                                     date?.let { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(it) } ?: "N/A",
-                                    color = if (isExpired) Color.Red else if (isExpiring) Color(0xFFFF9800) else Color.White,
-                                    fontSize = 12.sp
+                                    color = themeColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -352,15 +368,23 @@ private fun SubscriptionContent(
 
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                             Column {
-                                Text("PLAN: ${sub["planName"]}", color = Color.White, fontSize = 12.sp)
-                                Text("AMOUNT PAID: ₹${totalPaid.toInt()}", color = emeraldGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                // COOL ICON: STAR for Plan
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Star, null, Modifier.size(14.dp), emeraldGreen)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("PLAN: ${sub["planName"]}", color = Color.White, fontSize = 12.sp)
+                                }
+                                // ICON: MONEY for Amount
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                                    Icon(Icons.Default.AttachMoney, null, Modifier.size(14.dp), Color.Yellow)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("PAID: ₹${totalPaid.toInt()}", color = emeraldGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                             IconButton(
                                 onClick = { onExtend(sub) },
                                 modifier = Modifier.size(32.dp).background(
-                                    if (isExpired) Color.Red.copy(0.2f)
-                                    else if (isExpiring) Color(0xFFFF9800).copy(0.2f)
-                                    else emeraldGreen.copy(0.2f),
+                                    themeColor.copy(0.2f),
                                     CircleShape
                                 )
                             ) {
@@ -368,9 +392,7 @@ private fun SubscriptionContent(
                                     Icons.Default.AddCircle,
                                     null,
                                     Modifier.size(18.dp),
-                                    if (isExpired) Color.Red
-                                    else if (isExpiring) Color(0xFFFF9800)
-                                    else emeraldGreen
+                                    themeColor
                                 )
                             }
                         }
@@ -378,6 +400,31 @@ private fun SubscriptionContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatusPill(status: String) {
+    // Define the colors and label based on the status string
+    val (backgroundColor, textColor, label) = when (status.lowercase()) {
+        "active" -> Triple(emeraldGreen.copy(0.15f), emeraldGreen, "ACTIVE")
+        "expired" -> Triple(Color.Red.copy(0.15f), Color.Red, "EXPIRED")
+        "expiring" -> Triple(Color(0xFFFF9800).copy(0.15f), Color(0xFFFF9800), "EXPIRING")
+        else -> Triple(Color.Gray.copy(0.15f), Color.Gray, status.uppercase())
+    }
+
+    Surface(
+        color = backgroundColor,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, textColor.copy(0.4f))
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+        )
     }
 }
 // Data class to hold payment info and prevent recomposition
@@ -632,28 +679,7 @@ private fun StatBox(
     }
 }
 
-@Composable
-private fun StatusPill(status: String) {
-    val (backgroundColor, textColor, label) = when (status.lowercase()) {
-        "active" -> Triple(emeraldGreen.copy(0.15f), emeraldGreen, "ACTIVE")
-        "expired" -> Triple(Color.Red.copy(0.15f), Color.Red, "EXPIRED")
-        else -> Triple(Color.Gray.copy(0.15f), Color.Gray, status.uppercase())
-    }
 
-    Surface(
-        color = backgroundColor,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, textColor.copy(0.4f))
-    ) {
-        Text(
-            label,
-            color = textColor,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-        )
-    }
-}
 
 @Composable
 private fun PlanContent(

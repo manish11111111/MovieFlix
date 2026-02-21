@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Border color when you are TYPING (Focused) -->
+    <item android:color="#FFFFFF" android:state_focused="true" />
+
+    <!-- Border color when the field is IDLE (Unfocused) -->
+    <item android:color="#CCFFFFFF" />
+</selector>

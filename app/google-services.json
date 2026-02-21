@@ -12,7 +12,20 @@
           "package_name": "com.manish.demo"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "609364353852-hpfcd0odvinlaphiekpn70l0a5kjljt3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.manish.demo",
+            "certificate_hash": "0807f1fd764ad324137db9cacd019ae8403826eb"
+          }
+        },
+        {
+          "client_id": "609364353852-g92qtcj0h0u9fnjug2q74j8a449rtm2r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC-XqfeRoM09kRyUL2cj2o6vqYELo-gAjQ"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "609364353852-g92qtcj0h0u9fnjug2q74j8a449rtm2r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

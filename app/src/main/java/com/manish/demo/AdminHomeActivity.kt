@@ -166,29 +166,49 @@ class DashboardViewModel : ViewModel() {
     }
 
     private fun startListening() {
-        // Local caches for calculation
+        // 1. DYNAMIC USER COUNT
+        // Listens to the entire 'users' collection and counts documents
+        db.collection("users").addSnapshotListener { snapshot, error ->
+            if (error == null && snapshot != null) {
+                _stats.value = _stats.value.copy(totalUsers = snapshot.size())
+            }
+        }
+
+        // 2. DYNAMIC MOVIE COUNT
+        // Listens to the 'movies' collection to keep the UI updated
+        db.collection("movies").addSnapshotListener { snapshot, error ->
+            if (error == null && snapshot != null) {
+                _stats.value = _stats.value.copy(totalMovies = snapshot.size())
+            }
+        }
+
+        // 3. DYNAMIC ACTIVE SUBSCRIPTIONS COUNT
+        // Query: Only documents where endDate is greater than now
+        db.collection("subscriptions")
+            .whereGreaterThan("endDate", Timestamp.now())
+            .addSnapshotListener { snapshot, error ->
+                if (error == null && snapshot != null) {
+                    _stats.value = _stats.value.copy(activeSubs = snapshot.size())
+                }
+            }
+
+        // 4. REVENUE & CHART LOGIC (Existing logic updated to use payments source)
         var paymentsCache: List<com.google.firebase.firestore.DocumentSnapshot> = emptyList()
 
-        // Helper: Calculate revenue and trends from actual PAYMENTS collection
-        fun recalculate() {
-            // 1. Total Revenue: Sum of all 'amount' fields in payments collection
+        fun recalculateRevenue() {
             val totalRev = paymentsCache.sumOf { d ->
                 (d.get("amount") as? Number)?.toDouble() ?: 0.0
             }
 
-            // 2. Daily chart: Sum of 'amount' grouped by day for the last 7 days
             val cal = Calendar.getInstance()
             cal.set(Calendar.HOUR_OF_DAY, 0)
             cal.set(Calendar.MINUTE, 0)
             cal.set(Calendar.SECOND, 0)
             cal.set(Calendar.MILLISECOND, 0)
-
-            // Go back 6 days to get a 7-day window (including today)
             cal.add(Calendar.DAY_OF_YEAR, -6)
             val sevenDaysAgo = cal.time
 
             val dayTotals = mutableMapOf<Int, Float>()
-
             paymentsCache.forEach { d ->
                 val ts = d.getTimestamp("createdAt")
                 ts?.let {
@@ -202,12 +222,10 @@ class DashboardViewModel : ViewModel() {
                 }
             }
 
-            // Calculate chart heights (normalized 0.05f to 1.0f)
             val maxRevenue = dayTotals.values.maxOrNull()?.takeIf { it > 0 } ?: 1f
             val chartData = (6 downTo 0).map { i ->
                 val dayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
                 val dailySum = dayTotals[dayCal.get(Calendar.DAY_OF_YEAR)] ?: 0f
-                // Normalizing for the UI bar chart
                 (dailySum / maxRevenue).coerceAtLeast(0.05f)
             }
 
@@ -217,29 +235,14 @@ class DashboardViewModel : ViewModel() {
             )
         }
 
-        // 1. LIVE SUMMARY STATS (totalUsers, totalMovies, activeSubs)
-        db.collection("Dashboard_stats")
-            .document("YbIkiRVdxGQqvza8K85i") // Use your specific doc ID if known
-            .addSnapshotListener { doc, error ->
-                if (error == null && doc != null) {
-                    _stats.value = _stats.value.copy(
-                        totalUsers = (doc.get("totalUsers") as? Number)?.toInt() ?: 0,
-                        totalMovies = (doc.get("totalMovies") as? Number)?.toInt() ?: 0,
-                        activeSubs = (doc.get("activeSubs") as? Number)?.toInt() ?: 0
-                    )
-                }
+        db.collection("payments").addSnapshotListener { snapshot, error ->
+            if (error == null && snapshot != null) {
+                paymentsCache = snapshot.documents
+                recalculateRevenue()
             }
+        }
 
-        // 2. PAYMENTS Listener: This is the source of truth for Revenue
-        db.collection("payments")
-            .addSnapshotListener { snapshot, error ->
-                if (error == null && snapshot != null) {
-                    paymentsCache = snapshot.documents
-                    recalculate()
-                }
-            }
-
-        // 3. LIVE ACTIVITY FEED
+        // 5. LIVE ACTIVITY FEED (Keeping your existing logic)
         db.collection("activities")
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .limit(10)
@@ -256,7 +259,7 @@ class DashboardViewModel : ViewModel() {
                             "role" -> Icons.Default.AdminPanelSettings
                             "plan" -> Icons.Default.SettingsSuggest
                             "security" -> Icons.Default.LockReset
-                            "payment" -> Icons.Default.AttachMoney // Added icon for payments
+                            "payment" -> Icons.Default.AttachMoney
                             else -> Icons.Default.Notifications
                         },
                         color = when (type) {
