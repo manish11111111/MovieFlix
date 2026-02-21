@@ -1108,15 +1108,20 @@ fun UserApp(
 
         // Overlays
         // Find this block in UserApp:
+        // In UserApp, find where MovieDetailScreen is called and update it:
         selectedMovie?.let { movie ->
             MovieDetailScreen(
                 movie = movie,
                 viewModel = sharedViewModel,
-                userName = userName, // <--- ADD THIS LINE
+                userName = userName,
                 onClose = { selectedMovie = null },
                 onPlayClick = { playingMovie = it },
                 onNavigateToSubscription = {
                     currentDestination = AppDestinations.SUBSCRIPTION
+                },
+                onAlsoWatchedClick = { clickedMovie ->  // ✅ ADD THIS NEW CALLBACK
+                    // Set the clicked movie as the new selected movie
+                    selectedMovie = clickedMovie
                 }
             )
         }
@@ -2469,6 +2474,7 @@ fun SubscriptionPlanCard(
 
 
 // ✅ COLLABORATIVE FILTERING: Users Also Watched Section
+// ✅ COLLABORATIVE FILTERING: Users Also Watched Section
 @Composable
 fun UsersAlsoWatchedSection(
     movieId: String,
@@ -2525,7 +2531,33 @@ fun UsersAlsoWatchedSection(
                 items(alsoWatchedMovies) { movie ->
                     NetflixMovieCard(
                         movie = movie,
-                        onClick = { onMovieClick(movie) }
+                        onClick = {
+                            // Fetch full movie details before passing to click handler
+                            val db = FirebaseFirestore.getInstance()
+                            db.collection("movies").document(movie.docId).get()
+                                .addOnSuccessListener { doc ->
+                                    if (doc.exists()) {
+                                        val fullMovie = MovieItem(
+                                            docId = doc.id,
+                                            tmdbId = (doc.get("tmdbId") as? Number)?.toInt() ?: 0,
+                                            title = doc.getString("title") ?: "",
+                                            description = doc.getString("description") ?: "",
+                                            poster = doc.getString("poster") ?: "",
+                                            backdrop = doc.getString("backdrop") ?: "",
+                                            streamUrl = doc.getString("streamUrl") ?: "",
+                                            trailerUrl = doc.getString("trailerUrl") ?: "",
+                                            genres = (doc.get("genres") as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                                            rating = (doc.get("rating") as? Number)?.toDouble() ?: 0.0
+                                        )
+                                        onMovieClick(fullMovie)
+                                    }
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("UsersAlsoWatched", "Error fetching movie details", e)
+                                    // Fallback to the basic movie if full fetch fails
+                                    onMovieClick(movie)
+                                }
+                        }
                     )
                 }
             }
@@ -2540,7 +2572,8 @@ fun MovieDetailScreen(
     userName: String,
     onClose: () -> Unit,
     onPlayClick: (MovieItem) -> Unit,
-    onNavigateToSubscription: () -> Unit = {}
+    onNavigateToSubscription: () -> Unit = {},
+    onAlsoWatchedClick: (MovieItem) -> Unit  // ✅ ADD THIS NEW PARAMETER
 ) {
     val emeraldGreen = Color(0xFF2ECC71)
     val db = FirebaseFirestore.getInstance()
@@ -2699,9 +2732,17 @@ fun MovieDetailScreen(
                 }
             }
 
-            // ✅ RESTORED: Users Also Watched Section
+            // ✅ UPDATED: Users Also Watched Section with proper navigation
             item {
-                UsersAlsoWatchedSection(movieId = movie.docId, onMovieClick = { clickedMovie -> onClose() })
+                UsersAlsoWatchedSection(
+                    movieId = movie.docId,
+                    onMovieClick = { clickedMovie ->
+                        // First close current detail
+                        onClose()
+                        // Then tell parent to open the clicked movie
+                        onAlsoWatchedClick(clickedMovie)
+                    }
+                )
             }
         }
 

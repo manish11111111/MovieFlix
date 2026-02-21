@@ -771,13 +771,24 @@ private fun PlanContent(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(sizes.paddingTiny)
                             ) {
+                                // ✅ UPDATED: Gold star inside circle with plan name
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Label,
-                                        null,
-                                        Modifier.size(sizes.iconSmall),
-                                        emeraldGreen
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .background(
+                                                color = Color(0xFFFFD700).copy(alpha = 0.15f),
+                                                shape = CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFFD700), // Gold color
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                     Spacer(Modifier.width(sizes.paddingSmall))
                                     Text(
                                         text = plan["name"].toString(),
@@ -786,6 +797,8 @@ private fun PlanContent(
                                         fontSize = sizes.subtitleSize
                                     )
                                 }
+
+                                // Duration row (unchanged)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         Icons.Default.Timer,
@@ -800,6 +813,8 @@ private fun PlanContent(
                                         fontSize = sizes.captionSize
                                     )
                                 }
+
+                                // Price row (unchanged)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         Icons.Default.Payments,
@@ -816,7 +831,8 @@ private fun PlanContent(
                                     )
                                 }
                             }
-                            // Actions
+
+                            // Actions (unchanged)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(sizes.paddingSmall)
