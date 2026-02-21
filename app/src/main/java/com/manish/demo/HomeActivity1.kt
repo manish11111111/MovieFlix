@@ -6,7 +6,8 @@ import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
-
+import java.util.Calendar
+import com.google.firebase.firestore.DocumentSnapshot
 // Compose Core
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -2145,18 +2146,20 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val userId = FirebaseAuth.getInstance().currentUser?.uid
     val db = FirebaseFirestore.getInstance()
-    // NEW STATES FOR TOASTS
+
+    // TOAST STATES
     var showSuccessToast by remember { mutableStateOf(false) }
     var showCancelledToast by remember { mutableStateOf(false) }
     var showFailedToast by remember { mutableStateOf(false) }
 
+    // DATA STATES
     var subscriptionPlans by remember { mutableStateOf<List<SubscriptionPlan>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var activeSubscription by remember { mutableStateOf<String?>(null) }
     var expiryDate by remember { mutableStateOf<String?>(null) }
     var hasActiveSubscription by remember { mutableStateOf(false) }
 
-    // ✅ NEW: States for expiring status and extension
+    // EXPIRY & EXTENSION STATES
     var isExpiringSoon by remember { mutableStateOf(false) }
     var daysUntilExpiry by remember { mutableStateOf(0) }
     var currentSubscriptionId by remember { mutableStateOf<String?>(null) }
@@ -2166,603 +2169,198 @@ fun UserSubscriptionContent(modifier: Modifier = Modifier) {
     val goldColor = Color(0xFFFFD700)
     val orangeColor = Color(0xFFFF9800)
 
-    // ✅ eSewa Payment Launcher
-    // In your UserSubscriptionContent function...
-
-
-
     val esewaPaymentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        when (result.resultCode) {
-            Activity.RESULT_OK -> {
-                val paymentResponse = result.data?.getStringExtra("PAYMENT_RESULT")
-                val subscriptionCreated = result.data?.getBooleanExtra("SUBSCRIPTION_CREATED", false) ?: false
-                val subscriptionExtended = result.data?.getBooleanExtra("SUBSCRIPTION_EXTENDED", false) ?: false
-
-                Log.d("ESewa_Result", "Success JSON: $paymentResponse")
-                Log.d("ESewa_Result", "Subscription Created: $subscriptionCreated")
-                Log.d("ESewa_Result", "Subscription Extended: $subscriptionExtended")
-
-                showSuccessToast = true
-
-                // Close extension dialog if it was an extension
-                if (subscriptionExtended) {
-                    showExtensionDialog = false
-                }
-            }
-            Activity.RESULT_CANCELED -> {
-                showCancelledToast = true
-            }
-            else -> {
-                showFailedToast = true
-            }
+        if (result.resultCode == Activity.RESULT_OK) {
+            showSuccessToast = true
+            showExtensionDialog = false
+        } else if (result.resultCode == Activity.RESULT_CANCELED) {
+            showCancelledToast = true
+        } else {
+            showFailedToast = true
         }
     }
 
-    CustomToastCompose(
-        message = "Subscription Activated Successfully!",
-        showToast = showSuccessToast,
-        onDismiss = { showSuccessToast = false }
-    )
-    CustomToastCompose(
-        message = "Payment Cancelled",
-        showToast = showCancelledToast,
-        onDismiss = { showCancelledToast = false }
-    )
-    CustomToastCompose(
-        message = "Payment Failed",
-        showToast = showFailedToast,
-        onDismiss = { showFailedToast = false }
-    )
-    // Function to launch eSewa payment
-    fun launchEsewaPayment(plan: SubscriptionPlan) {
-        val intent = Intent(context, ESewaPaymentHandler::class.java).apply {
-            putExtra("PLAN_ID", plan.id)
-            putExtra("PLAN_NAME", plan.name)
-            putExtra("PLAN_PRICE", plan.price.toDouble())
-            putExtra("PLAN_DURATION", plan.duration)
-        }
-        esewaPaymentLauncher.launch(intent)
-    }
-
-    // ✅ NEW: Function to launch eSewa payment for extension
-    fun launchEsewaPaymentForExtension(plan: SubscriptionPlan) {
-        val intent = Intent(context, ESewaPaymentHandler::class.java).apply {
-            putExtra("PLAN_ID", plan.id)
-            putExtra("PLAN_NAME", plan.name)
-            putExtra("PLAN_PRICE", plan.price.toDouble())
-            putExtra("PLAN_DURATION", plan.duration)
-            putExtra("IS_EXTENSION", true)
-            putExtra("SUBSCRIPTION_ID", currentSubscriptionId)
-        }
-        esewaPaymentLauncher.launch(intent)
-    }
-
-    // ✅ CORRECTED: Fetch subscription plans and check active subscription
-    LaunchedEffect(Unit) {
-        // Check active subscription - USING CORRECT FIELD NAME "endDate"
+    LaunchedEffect(userId) {
         if (userId != null) {
             db.collection("subscriptions")
                 .whereEqualTo("userId", userId)
-                .whereEqualTo("status", "active")  // Only get active subscriptions
+                .whereEqualTo("status", "active")
                 .addSnapshotListener { snapshot, _ ->
-                    val activeSub = snapshot?.documents?.firstOrNull { doc ->
-                        val expiry = doc.getTimestamp("endDate")?.toDate()  // Changed from "expiryDate"
+                    val activeSubDoc = snapshot?.documents?.firstOrNull { doc ->
+                        val expiry = doc.getTimestamp("endDate")?.toDate()
                         expiry != null && expiry.after(Date())
                     }
 
-                    hasActiveSubscription = activeSub != null
-                    currentSubscriptionId = activeSub?.id  // ✅ Store subscription ID for extension
+                    if (activeSubDoc != null) {
+                        val subId = activeSubDoc.id
+                        currentSubscriptionId = subId
+                        hasActiveSubscription = true
 
-                    // Get plan name by looking up the planId (relational)
-                    val planId = activeSub?.getString("planId")
-                    if (planId != null) {
-                        db.collection("subscription_plans").document(planId).get()
-                            .addOnSuccessListener { planDoc ->
-                                activeSubscription = planDoc.getString("name")
+                        // --- 1. SET INITIAL BASE NAME IMMEDIATELY ---
+                        // This prevents the "Blank Screen" while history is loading
+                        val basePlanId = activeSubDoc.getString("planId") ?: ""
+                        db.collection("subscription_plans").document(basePlanId).get().addOnSuccessListener { d ->
+                            if (activeSubscription == null) {
+                                activeSubscription = d.getString("name") ?: "Premium Plan"
                             }
+                        }
+
+                        // --- 2. START BACKGROUND OVERLAP CALCULATION ---
+                        db.collection("subscription_plans").get().addOnSuccessListener { planSnap ->
+                            val allPlanDocs: List<DocumentSnapshot> = planSnap.documents
+
+                            db.collection("payments")
+                                .whereEqualTo("subscriptionId", subId)
+                                .orderBy("createdAt", Query.Direction.DESCENDING)
+                                .get()
+                                .addOnSuccessListener { payDocs ->
+                                    val history = payDocs.documents
+                                    val latestPayment = history.firstOrNull()
+                                    val secondLatest = if (history.size > 1) history[1] else null
+
+                                    val currentId = latestPayment?.getString("planId") ?: basePlanId
+                                    val currentName = allPlanDocs.find { it.id == currentId }?.getString("name") ?: "Premium Plan"
+
+                                    if (secondLatest != null) {
+                                        val prevPlanId = secondLatest.getString("planId") ?: ""
+                                        val prevPlanData = allPlanDocs.find { it.id == prevPlanId }
+                                        val prevName = prevPlanData?.getString("name") ?: ""
+                                        val prevDuration = (secondLatest.get("duration") as? Number)?.toInt()
+                                            ?: (prevPlanData?.get("duration") as? Number)?.toInt() ?: 0
+                                        val prevCreatedAt = secondLatest.getTimestamp("createdAt")?.toDate() ?: Date(0)
+
+                                        val cal = Calendar.getInstance().apply {
+                                            time = prevCreatedAt
+                                            add(Calendar.DAY_OF_YEAR, prevDuration)
+                                        }
+
+                                        if (cal.time.after(Date()) && prevPlanId != currentId) {
+                                            activeSubscription = "$prevName + $currentName"
+                                        } else {
+                                            activeSubscription = currentName
+                                        }
+                                    } else {
+                                        activeSubscription = currentName
+                                    }
+                                }
+                        }
+
+                        // Format Expiry
+                        val expiry = activeSubDoc.getTimestamp("endDate")?.toDate()
+                        if (expiry != null) {
+                            expiryDate = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(expiry)
+                            val diff = expiry.time - Date().time
+                            daysUntilExpiry = (diff / (1000 * 60 * 60 * 24)).toInt()
+                            isExpiringSoon = daysUntilExpiry <= 7 && daysUntilExpiry >= 0
+                        }
                     } else {
+                        hasActiveSubscription = false
                         activeSubscription = null
                     }
-
-                    // Format expiry date and calculate days until expiry
-                    val expiry = activeSub?.getTimestamp("endDate")?.toDate()  // Changed from "expiryDate"
-                    if (expiry != null) {
-                        val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                        expiryDate = sdf.format(expiry)
-
-                        // ✅ Calculate days until expiry
-                        val currentDate = Date()
-                        val diffInMillis = expiry.time - currentDate.time
-                        daysUntilExpiry = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
-
-                        // ✅ Check if expiring within 7 days
-                        isExpiringSoon = daysUntilExpiry <= 7 && daysUntilExpiry >= 0
-                    } else {
-                        expiryDate = null
-                        daysUntilExpiry = 0
-                        isExpiringSoon = false
-                    }
+                    isLoading = false
                 }
         }
 
-        // Fetch available plans
-        db.collection("subscription_plans")
-            .orderBy("price")
-            .get()
-            .addOnSuccessListener { docs ->
-                subscriptionPlans = docs.mapNotNull { doc ->
-                    try {
-                        SubscriptionPlan(
-                            id = doc.id,
-                            name = doc.getString("name") ?: "",
-                            price = (doc.get("price") as? Number)?.toInt() ?: 0,
-                            duration = (doc.get("duration") as? Number)?.toInt() ?: 30,
-                            description = doc.getString("description") ?: ""
-                        )
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-                isLoading = false
+        // Load plans for purchase list
+        db.collection("subscription_plans").orderBy("price").get().addOnSuccessListener { docs ->
+            subscriptionPlans = docs.mapNotNull { doc ->
+                try {
+                    SubscriptionPlan(
+                        id = doc.id,
+                        name = doc.getString("name") ?: "",
+                        price = (doc.get("price") as? Number)?.toInt() ?: 0,
+                        duration = (doc.get("duration") as? Number)?.toInt() ?: 30,
+                        description = doc.getString("description") ?: ""
+                    )
+                } catch (e: Exception) { null }
             }
-            .addOnFailureListener {
-                isLoading = false
-            }
+        }
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
-    ) {
-        // ✨ Premium Header Section
+    CustomToastCompose(message = "Subscription Updated!", showToast = showSuccessToast, onDismiss = { showSuccessToast = false })
+    CustomToastCompose(message = "Cancelled", showToast = showCancelledToast, onDismiss = { showCancelledToast = false })
+    CustomToastCompose(message = "Failed", showToast = showFailedToast, onDismiss = { showFailedToast = false })
+
+    fun launchEsewa(plan: SubscriptionPlan, isExt: Boolean = false) {
+        val intent = Intent(context, ESewaPaymentHandler::class.java).apply {
+            putExtra("PLAN_ID", plan.id); putExtra("PLAN_NAME", plan.name)
+            putExtra("PLAN_PRICE", plan.price.toDouble()); putExtra("PLAN_DURATION", plan.duration)
+            putExtra("IS_EXTENSION", isExt); putExtra("SUBSCRIPTION_ID", currentSubscriptionId)
+        }
+        esewaPaymentLauncher.launch(intent)
+    }
+
+    LazyColumn(modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                emeraldGreen.copy(alpha = 0.12f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-                    .padding(horizontal = 20.dp, vertical = 24.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Icon with conditional styling
-                    Icon(
-                        Icons.Default.CardMembership,
-                        contentDescription = null,
-                        tint = if (hasActiveSubscription) emeraldGreen else goldColor,
-                        modifier = Modifier.size(48.dp)
-                    )
-
+            Box(modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(emeraldGreen.copy(0.12f), Color.Transparent))).padding(24.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.CardMembership, null, tint = if (hasActiveSubscription) emeraldGreen else goldColor, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(12.dp))
-
-                    Text(
-                        if (hasActiveSubscription) "Active Subscription" else "Premium Plans",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        style = androidx.compose.ui.text.TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = if (hasActiveSubscription) emeraldGreen.copy(alpha = 0.4f) else goldColor.copy(alpha = 0.4f),
-                                offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                                blurRadius = 6f
-                            )
-                        )
-                    )
-
-                    Spacer(Modifier.height(4.dp))
-
-                    Text(
-                        if (hasActiveSubscription)
-                            "Enjoy unlimited access to all content"
-                        else
-                            "Unlimited access to premium content",
-                        fontSize = 13.sp,
-                        color = Color.White.copy(0.7f),
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text(if (hasActiveSubscription) "Active Subscription" else "Premium Plans", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 }
             }
         }
 
-        // ✅ SHOW ACTIVE SUBSCRIPTION DETAILS (IF USER HAS ONE)
-        if (hasActiveSubscription && activeSubscription != null) {
+        if (isLoading) {
+            item { Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { CircularProgressIndicator(color = emeraldGreen) } }
+        } else if (hasActiveSubscription) {
             item {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.Transparent
-                    ),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                emeraldGreen.copy(0.4f),
-                                emeraldGreen,
-                                emeraldGreen.copy(0.4f)
-                            )
-                        )
-                    ),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = BorderStroke(1.dp, emeraldGreen.copy(0.5f)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        emeraldGreen.copy(0.15f),
-                                        emeraldGreen.copy(0.08f),
-                                        emeraldGreen.copy(0.15f)
-                                    )
-                                )
-                            )
-                            .padding(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            // ✅ Conditional Icon based on expiring status
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(
-                                        if (isExpiringSoon) orangeColor.copy(0.25f) else emeraldGreen.copy(0.25f),
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    if (isExpiringSoon) Icons.Default.HourglassEmpty else Icons.Default.CheckCircle,
-                                    contentDescription = if (isExpiringSoon) "Expiring" else "Active",
-                                    tint = if (isExpiringSoon) orangeColor else emeraldGreen,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            Spacer(Modifier.width(12.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                // ✅ Conditional label based on expiring status
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        if (isExpiringSoon) "Expiring Soon" else "Active",
-                                        color = if (isExpiringSoon) orangeColor else emeraldGreen,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                    if (isExpiringSoon) {
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            "($daysUntilExpiry days left)",
-                                            color = Color.White.copy(0.6f),
-                                            fontSize = 9.sp
-                                        )
-                                    }
-                                }
-                                Text(
-                                    activeSubscription ?: "",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
-                                if (expiryDate != null) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(top = 2.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.DateRange,
-                                            contentDescription = null,
-                                            tint = Color.White.copy(0.5f),
-                                            modifier = Modifier.size(11.dp)
-                                        )
-                                        Spacer(Modifier.width(3.dp))
-                                        Text(
-                                            "Until $expiryDate",
-                                            color = Color.White.copy(0.5f),
-                                            fontSize = 10.sp
-                                        )
-                                    }
-                                }
-                            }
-
-                            // ✅ "+" Extension Button (always visible)
-                            IconButton(
-                                onClick = { showExtensionDialog = true },
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(emeraldGreen.copy(0.25f), CircleShape)
-                            ) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = "Extend Subscription",
-                                    tint = emeraldGreen,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                    Row(modifier = Modifier.background(emeraldGreen.copy(0.1f)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(40.dp).background(if (isExpiringSoon) orangeColor.copy(0.2f) else emeraldGreen.copy(0.2f), CircleShape), Alignment.Center) {
+                            Icon(if (isExpiringSoon) Icons.Default.HourglassEmpty else Icons.Default.CheckCircle, null, tint = if (isExpiringSoon) orangeColor else emeraldGreen, modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(if (isExpiringSoon) "Expiring Soon ($daysUntilExpiry days)" else "Active Plan", color = if (isExpiringSoon) orangeColor else emeraldGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            // If name is still calculating, show a placeholder
+                            Text(activeSubscription ?: "Loading Plan Name...", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text("Valid until $expiryDate", color = Color.White.copy(0.5f), fontSize = 11.sp)
+                        }
+                        IconButton(onClick = { showExtensionDialog = true }, modifier = Modifier.background(emeraldGreen.copy(0.2f), CircleShape)) {
+                            Icon(Icons.Default.Add, null, tint = emeraldGreen)
                         }
                     }
                 }
             }
-
-            // ✅ "You're All Set" message
-            item {
-                Spacer(Modifier.height(16.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .background(
-                            Color.White.copy(0.05f),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .padding(20.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = emeraldGreen,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "You're All Set!",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "Your subscription is active. Enjoy unlimited access to all movies and shows.",
-                            fontSize = 13.sp,
-                            color = Color.White.copy(0.7f),
-                            textAlign = TextAlign.Center,
-                            lineHeight = 18.sp
-                        )
-                    }
-                }
+        } else {
+            item { Text("Available Plans", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp)) }
+            items(subscriptionPlans) { plan ->
+                SubscriptionPlanCard(plan = plan, isActive = false, onEsewaClick = { launchEsewa(plan) }, onKhaltiClick = {}, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
             }
-        }
-
-        // ✅ ONLY SHOW PLANS IF USER HAS NO ACTIVE SUBSCRIPTION
-        if (!hasActiveSubscription) {
-            // 📦 Plans Section Header
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Text(
-                        "Available Plans",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        "Choose the perfect plan for you",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(0.6f),
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-            }
-
-            // 🎯 Loading State
-            if (isLoading) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(
-                                color = emeraldGreen,
-                                strokeWidth = 2.5.dp,
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                "Loading plans...",
-                                color = Color.White.copy(0.5f),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            } else if (subscriptionPlans.isEmpty()) {
-                // Empty State
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.CardMembership,
-                                contentDescription = null,
-                                tint = Color.White.copy(0.3f),
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                "No plans available",
-                                color = Color.White.copy(0.5f),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            } else {
-                // ✨ Subscription Plan Cards
-                items(subscriptionPlans.size) { index ->
-                    SubscriptionPlanCard(
-                        plan = subscriptionPlans[index],
-                        isActive = false,  // Never show as active when displaying purchase options
-                        onEsewaClick = {
-                            launchEsewaPayment(subscriptionPlans[index])
-                        },
-                        onKhaltiClick = {
-                            android.widget.Toast.makeText(
-                                context,
-                                "Contact admin to purchase ${subscriptionPlans[index].name}",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                    )
-                }
-            }
-            // ✅ End of conditional: only show plans if no active subscription
         }
     }
 
-    // ✅ Extension Dialog (shown when user taps "+" button)
     if (showExtensionDialog) {
         AlertDialog(
             onDismissRequest = { showExtensionDialog = false },
             containerColor = Color(0xFF1a1a2e),
             shape = RoundedCornerShape(16.dp),
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        Icons.Default.CardMembership,
-                        contentDescription = null,
-                        tint = emeraldGreen,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        "Extend Subscription",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            },
+            title = { Text("Extend Subscription", color = Color.White) },
             text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "Choose a plan to extend your subscription",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(0.7f)
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // Plans list
-                    if (subscriptionPlans.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(100.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                color = emeraldGreen,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                    } else {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            subscriptionPlans.forEach { plan ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            launchEsewaPaymentForExtension(plan)
-                                        },
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = Color.White.copy(0.08f)
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(14.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                plan.name,
-                                                color = Color.White,
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Spacer(Modifier.height(4.dp))
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    Icons.Default.DateRange,
-                                                    contentDescription = null,
-                                                    tint = emeraldGreen,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                                Spacer(Modifier.width(4.dp))
-                                                Text(
-                                                    "+${plan.duration} days",
-                                                    color = emeraldGreen,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            "₹${plan.price}",
-                                            color = goldColor,
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.ExtraBold
-                                        )
-                                    }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    subscriptionPlans.forEach { plan ->
+                        Card(modifier = Modifier.fillMaxWidth().clickable { launchEsewa(plan, true) }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.05f))) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(plan.name, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("+${plan.duration} days", color = emeraldGreen, fontSize = 12.sp)
                                 }
+                                Text("₹${plan.price}", color = goldColor, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = {
-                TextButton(
-                    onClick = { showExtensionDialog = false }
-                ) {
-                    Text(
-                        "Cancel",
-                        color = Color.White.copy(0.7f),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+            dismissButton = { TextButton(onClick = { showExtensionDialog = false }) { Text("Cancel", color = Color.White.copy(0.5f)) } }
         )
     }
 }

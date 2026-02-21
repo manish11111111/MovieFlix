@@ -102,6 +102,7 @@ private val glassBorder = Color.White.copy(alpha = 0.2f)
 
 @Composable
 fun SubscriptionManagementScreen(viewModel: SubscriptionViewModel, modifier: Modifier = Modifier) {
+    // 1. Get data from ViewModel
     val subscriptions by viewModel.subscriptions.collectAsState()
     val plans by viewModel.plansFlow.collectAsState()
     val stats by viewModel.stats.collectAsState()
@@ -109,230 +110,119 @@ fun SubscriptionManagementScreen(viewModel: SubscriptionViewModel, modifier: Mod
     var selectedTab by remember { mutableIntStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Dialog control states
+    // Dialog states
     var showAddEditPlan by remember { mutableStateOf<Map<String, Any>?>(null) }
     var showExtendSub by remember { mutableStateOf<Map<String, Any>?>(null) }
     var showDeletePlanDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
 
-    // GLOBAL STATES for Toast and Loader
+    // Loading/Toast states
     var isGlobalLoading by remember { mutableStateOf(false) }
     var globalLoadingMessage by remember { mutableStateOf("") }
     var showToast by remember { mutableStateOf(false) }
     var toastMessage by remember { mutableStateOf("") }
 
-    // Process subscriptions with dynamic status based on end date
-    val processedSubscriptions = remember(subscriptions) {
-        subscriptions.map { sub ->
-            val endDate = (sub["endDate"] as? Timestamp)?.toDate()
-            val dbStatus = sub["status"]?.toString() ?: "unknown"
-
-            // Determine actual status based on end date
-            val actualStatus = when {
-                endDate == null -> dbStatus
-                endDate.before(Date()) -> "expired" // End date is in the past
-                else -> dbStatus // Keep original status if not expired
-            }
-
-            // Create a new map with the actual status
-            sub.toMutableMap().apply {
-                put("actualStatus", actualStatus)
-                put("displayStatus", actualStatus)
-            }
-        }
-    }
-
-    // Calculate stats with dynamic statuses
-    val calculatedCounts = remember(processedSubscriptions) {
-        val now = Date()
-        val active = processedSubscriptions.count {
-            it["actualStatus"] == "active"
-        }
-        val expiring = processedSubscriptions.count { sub ->
-            val actualStatus = sub["actualStatus"] as? String ?: ""
-            val endDate = (sub["endDate"] as? Timestamp)?.toDate()
-            actualStatus == "active" && endDate != null && isExpiringSoon(endDate)
-        }
-        val expired = processedSubscriptions.count {
-            it["actualStatus"] == "expired"
-        }
-
-        mapOf(
-            "active" to active,
-            "expiring" to expiring,
-            "expired" to expired
-        )
-    }
-
-    // Filter subscriptions based on dynamic status
-    val filteredSubs = remember(processedSubscriptions, selectedTab, searchQuery) {
-        processedSubscriptions.filter { sub ->
+    // 2. FILTER LOGIC (Synchronized with ViewModel keys)
+    val filteredSubs = remember(subscriptions, selectedTab, searchQuery) {
+        subscriptions.filter { sub ->
+            // Search filter
             val matchesSearch = listOf("fullName", "email", "phone", "planName").any {
                 sub[it]?.toString()?.contains(searchQuery, ignoreCase = true) == true
             }
 
-            val actualStatus = sub["actualStatus"] as? String ?: ""
+            // Tab filter - IMPORTANT: Key is "actualStatus" as defined in your ViewModel
+            val status = sub["actualStatus"] as? String ?: "active"
             val endDate = (sub["endDate"] as? Timestamp)?.toDate()
 
             val matchesTab = when (selectedTab) {
-                0 -> actualStatus == "active" // Active
-                1 -> actualStatus == "active" && endDate != null && isExpiringSoon(endDate) // Expiring
-                2 -> actualStatus == "expired" // Expired
-                3 -> false // Plans tab - handled separately
-                else -> true
+                0 -> status == "active"   // Active Tab
+                1 -> status == "active" && endDate != null && isExpiringSoon(endDate) // Expiring Tab
+                2 -> status == "expired"  // Expired Tab
+                else -> true // Plans tab (content handled separately)
             }
-            matchesSearch && matchesTab
+            matchesSearch && (selectedTab == 3 || matchesTab)
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(modifier = modifier, containerColor = Color.Transparent) { pad ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = pad.calculateBottomPadding())
-            ) {
+            Column(modifier = Modifier.fillMaxSize().padding(bottom = pad.calculateBottomPadding())) {
 
-                // Stat Boxes Row - Active, Expiring, Expired, Revenue
+                // Stats Row - Using stats from ViewModel directly
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 8.dp, end = 8.dp, top = 0.dp, bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    StatBox(
-                        Modifier.weight(1f),
-                        "Active",
-                        calculatedCounts["active"].toString(),
-                        Icons.Filled.VerifiedUser,
-                        emeraldGreen
-                    )
-                    StatBox(
-                        Modifier.weight(1f),
-                        "Expiring",
-                        calculatedCounts["expiring"].toString(),
-                        Icons.Filled.HourglassTop,
-                        Color(0xFFFF9800)
-                    )
-                    StatBox(
-                        Modifier.weight(1f),
-                        "Expired",
-                        calculatedCounts["expired"].toString(),
-                        Icons.Filled.Block,
-                        Color.Red
-                    )
+                    StatBox(Modifier.weight(1f), "Active", (stats["active"] ?: 0).toString(), Icons.Filled.VerifiedUser, emeraldGreen)
+                    StatBox(Modifier.weight(1f), "Expiring", (stats["expiring"] ?: 0).toString(), Icons.Filled.HourglassTop, Color(0xFFFF9800))
+                    StatBox(Modifier.weight(1f), "Expired", (stats["expired"] ?: 0).toString(), Icons.Filled.Block, Color.Red)
                     val rev = stats["revenue"]?.toString()?.toDoubleOrNull() ?: 0.0
-                    StatBox(
-                        Modifier.weight(1f),
-                        "Revenue",
-                        if (rev >= 1000) "₹${String.format("%.2f", rev / 1000)}K"
-                        else "₹${String.format("%.2f", rev)}",
-                        Icons.Filled.AttachMoney,
-                        Color.Yellow
-                    )
+                    StatBox(Modifier.weight(1f), "Revenue", if (rev >= 1000) "₹${String.format("%.1f", rev / 1000)}K" else "₹${rev.toInt()}", Icons.Filled.AttachMoney, Color.Yellow)
                 }
 
                 // Search Bar
                 Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = glassBg,
-                    border = BorderStroke(1.dp, glassBorder)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(12.dp), color = glassBg, border = BorderStroke(1.dp, glassBorder)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Search, null, Modifier.size(18.dp), emeraldGreen)
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
                             textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
                             cursorBrush = SolidColor(emeraldGreen),
                             decorationBox = { inner ->
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        "Search subscribers or plans...",
-                                        color = Color.White.copy(0.3f),
-                                        fontSize = 14.sp
-                                    )
-                                }
+                                if (searchQuery.isEmpty()) Text("Search subscribers...", color = Color.White.copy(0.3f), fontSize = 14.sp)
                                 inner()
                             }
                         )
                     }
                 }
 
-                // Tabs - Active, Expiring, Expired, Plans
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.Transparent,
-                    contentColor = Color.White,
-                    divider = {}
-                ) {
+                // Tabs
+                TabRow(selectedTabIndex = selectedTab, containerColor = Color.Transparent, contentColor = Color.White, divider = {}) {
                     val tabTitles = listOf("Active", "Expiring", "Expired", "Plans")
                     tabTitles.forEachIndexed { i, t ->
                         val count = when (i) {
-                            0 -> calculatedCounts["active"] ?: 0
-                            1 -> calculatedCounts["expiring"] ?: 0
-                            2 -> calculatedCounts["expired"] ?: 0
+                            0 -> stats["active"] ?: 0
+                            1 -> stats["expiring"] ?: 0
+                            2 -> stats["expired"] ?: 0
                             else -> plans.size
                         }
                         Tab(
                             selected = selectedTab == i,
                             onClick = { selectedTab = i },
-                            text = {
-                                Text(
-                                    "$t (${count})",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            text = { Text("$t ($count)", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                         )
                     }
                 }
 
-                // Content area - takes remaining space with weight(1f)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
+                // Content
+                Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(16.dp)) {
                     if (selectedTab == 3) {
                         PlanContent(
                             plans = plans,
                             onAdd = { showAddEditPlan = emptyMap() },
                             onEdit = { showAddEditPlan = it },
-                            onDelete = { planId, planName ->
-                                showDeletePlanDialog = Pair(planId, planName)
-                            },
+                            onDelete = { id, name -> showDeletePlanDialog = Pair(id, name) },
                             isGlobalLoading = isGlobalLoading
                         )
                     } else {
                         SubscriptionContent(
                             list = filteredSubs,
                             onExtend = { showExtendSub = it },
-                            isGlobalLoading = isGlobalLoading
+                            isGlobalLoading = isGlobalLoading,
+
                         )
                     }
                 }
             }
         }
 
-        // Loader Overlay
-        AnimatedVisibility(visible = isGlobalLoading, enter = fadeIn(), exit = fadeOut()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.7f))
-                    .zIndex(10f),
-                contentAlignment = Alignment.Center
-            ) {
+        // Overlays
+        if (isGlobalLoading) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.7f)).zIndex(10f), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = emeraldGreen)
                     Spacer(Modifier.height(16.dp))
@@ -341,46 +231,29 @@ fun SubscriptionManagementScreen(viewModel: SubscriptionViewModel, modifier: Mod
             }
         }
 
-        // Toast Overlay
-        CustomToastCompose(
-            message = toastMessage,
-            showToast = showToast,
-            onDismiss = { showToast = false }
-        )
+        CustomToastCompose(message = toastMessage, showToast = showToast, onDismiss = { showToast = false })
     }
 
-    // Dialogs
-    showAddEditPlan?.let {
-        PlanDialog(
-            plan = it,
-            onDismiss = { showAddEditPlan = null },
-            vm = viewModel,
-            onLoading = { msg, loading -> isGlobalLoading = loading; globalLoadingMessage = msg },
-            onSuccess = { msg -> toastMessage = msg; showToast = true }
-        )
+    // Dialog Implementations
+    showAddEditPlan?.let { plan ->
+        PlanDialog(plan = plan, onDismiss = { showAddEditPlan = null }, vm = viewModel,
+            onLoading = { msg, l -> isGlobalLoading = l; globalLoadingMessage = msg },
+            onSuccess = { msg -> toastMessage = msg; showToast = true })
     }
 
-    showExtendSub?.let {
-        ExtendSubDialog(
-            sub = it,
-            onDismiss = { showExtendSub = null },
-            vm = viewModel,
-            onLoading = { msg, loading -> isGlobalLoading = loading; globalLoadingMessage = msg },
-            onSuccess = { msg -> toastMessage = msg; showToast = true }
-        )
+    showExtendSub?.let { sub ->
+        ExtendSubDialog(sub = sub, onDismiss = { showExtendSub = null }, vm = viewModel,
+            onLoading = { msg, l -> isGlobalLoading = l; globalLoadingMessage = msg },
+            onSuccess = { msg -> toastMessage = msg; showToast = true })
     }
 
-    showDeletePlanDialog?.let { (planId, planName) ->
-        DeletePlanDialog(
-            planId = planId,
-            planName = planName,
-            onDismiss = { showDeletePlanDialog = null },
-            vm = viewModel,
-            onLoading = { msg, loading -> isGlobalLoading = loading; globalLoadingMessage = msg },
-            onSuccess = { msg -> toastMessage = msg; showToast = true }
-        )
+    showDeletePlanDialog?.let { (id, name) ->
+        DeletePlanDialog(planId = id, planName = name, onDismiss = { showDeletePlanDialog = null }, vm = viewModel,
+            onLoading = { msg, l -> isGlobalLoading = l; globalLoadingMessage = msg },
+            onSuccess = { msg -> toastMessage = msg; showToast = true })
     }
 }
+
 
 // Helper function to check if a date is expiring within 7 days
 fun isExpiringSoon(date: Date): Boolean {
@@ -399,26 +272,8 @@ private fun SubscriptionContent(
     isGlobalLoading: Boolean
 ) {
     if (list.isEmpty()) {
-        // Show empty state
-        Box(
-            modifier = Modifier
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.Filled.Search,
-                    null,
-                    Modifier.size(48.dp),
-                    Color.White.copy(0.3f)
-                )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "No subscriptions found",
-                    color = Color.White.copy(0.5f),
-                    fontSize = 16.sp
-                )
-            }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No subscriptions found", color = Color.White.copy(0.5f))
         }
     } else {
         LazyColumn(
@@ -427,223 +282,92 @@ private fun SubscriptionContent(
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             items(list, key = { it["id"].toString() }) { sub ->
-                // Use actualStatus for display
-                val status = sub["actualStatus"] as? String ?: sub["status"]?.toString() ?: "unknown"
+                val status = sub["actualStatus"] as? String ?: "active"
                 val isExpired = status == "expired"
-                val isActive = status == "active"
-                val isExpiring = status == "active" && isExpiringSoon((sub["endDate"] as? Timestamp)?.toDate() ?: Date())
+                val isExpiring = sub["isExpiring"] as? Boolean ?: false
 
                 val date = (sub["endDate"] as? Timestamp)?.toDate()
-                val photoBase64 = sub["profileImage"]?.toString() ?: ""
-                val imgSrc =
-                    if (photoBase64.isEmpty()) null else if (photoBase64.contains(",")) photoBase64.split(
-                        ","
-                    )[1] else photoBase64
+                val totalPaid = (sub["totalAmountPaid"] as? Double) ?: 0.0
+                val history = sub["paymentHistory"] as? List<Map<String, Any>> ?: emptyList()
 
-                val decodedBitmap = remember(imgSrc) {
-                    if (imgSrc != null) {
+                // Image logic
+                val photoBase64 = sub["profileImage"]?.toString() ?: ""
+                val decodedBitmap = remember(photoBase64) {
+                    if (photoBase64.isNotEmpty()) {
                         try {
+                            val imgSrc = if (photoBase64.contains(",")) photoBase64.split(",")[1] else photoBase64
                             val bytes = Base64.decode(imgSrc, Base64.DEFAULT)
                             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-                        } catch (e: Exception) {
-                            null
-                        }
+                        } catch (e: Exception) { null }
                     } else null
                 }
 
-                // Get stored price from subscription
-                val planPrice = sub["planPrice"] as? Number ?: 0
-                val paymentMethod = sub["paymentMethod"]?.toString() ?: "Unknown"
-
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateContentSize(),
+                    modifier = Modifier.fillMaxWidth().animateContentSize(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = glassBg),
-                    border = BorderStroke(1.dp, if (isExpired) Color.Red.copy(0.3f) else if (isExpiring) Color(0xFFFF9800).copy(0.3f) else glassBorder)
+                    border = BorderStroke(1.dp, when {
+                        isExpired -> Color.Red.copy(0.3f)
+                        isExpiring -> Color(0xFFFF9800).copy(0.3f)
+                        else -> glassBorder
+                    })
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (decodedBitmap != null) {
-                                Image(
-                                    bitmap = decodedBitmap,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(45.dp)
-                                        .clip(CircleShape)
-                                        .border(1.dp, emeraldGreen, CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
+                                Image(bitmap = decodedBitmap, contentDescription = null, modifier = Modifier.size(45.dp).clip(CircleShape).border(1.dp, emeraldGreen, CircleShape), contentScale = ContentScale.Crop)
                             } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(45.dp)
-                                        .background(Color.Gray.copy(0.3f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = sub["fullName"].toString().take(1).uppercase(),
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Box(Modifier.size(45.dp).background(Color.Gray.copy(0.3f), CircleShape), Alignment.Center) {
+                                    Text(sub["fullName"].toString().take(1).uppercase(), color = Color.White)
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = sub["fullName"].toString(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Filled.Email,
-                                        null,
-                                        Modifier.size(10.dp),
-                                        Color.White.copy(0.4f)
-                                    )
-                                    Text(
-                                        " EMAIL: ",
-                                        color = Color.White.copy(0.5f),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        sub["email"].toString(),
-                                        color = Color.White.copy(0.7f),
-                                        fontSize = 11.sp
-                                    )
-                                }
+                            Column(Modifier.weight(1f)) {
+                                Text(sub["fullName"].toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(sub["email"].toString(), color = Color.White.copy(0.6f), fontSize = 11.sp)
                             }
                             StatusPill(status = status)
                         }
 
                         Spacer(Modifier.height(12.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
                             Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Filled.Phone,
-                                        null,
-                                        Modifier.size(10.dp),
-                                        Color.White.copy(0.4f)
-                                    )
-                                    Text(
-                                        " PHONE ",
-                                        color = Color.White.copy(0.5f),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Text(
-                                    sub["phone"].toString(),
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(start = 14.dp)
-                                )
+                                Text("PHONE", color = Color.White.copy(0.4f), fontSize = 9.sp)
+                                Text(sub["phone"].toString(), color = Color.White, fontSize = 12.sp)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        if (isExpired) "EXPIRED " else "EXPIRES ",
-                                        color = if (isExpired) Color.Red.copy(0.7f) else if (isExpiring) Color(0xFFFF9800).copy(0.7f) else Color.White.copy(0.5f),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Icon(
-                                        Icons.Filled.CalendarMonth,
-                                        null,
-                                        Modifier.size(10.dp),
-                                        Color.White.copy(0.4f)
-                                    )
-                                }
+                                Text(if (isExpired) "EXPIRED" else if (isExpiring) "EXPIRING SOON" else "EXPIRES",
+                                    color = if (isExpired) Color.Red else if (isExpiring) Color(0xFFFF9800) else Color.White.copy(0.4f),
+                                    fontSize = 9.sp)
                                 Text(
-                                    date?.let {
-                                        SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(it)
-                                    } ?: "N/A",
+                                    date?.let { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(it) } ?: "N/A",
                                     color = if (isExpired) Color.Red else if (isExpiring) Color(0xFFFF9800) else Color.White,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(end = 14.dp)
+                                    fontSize = 12.sp
                                 )
                             }
                         }
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            color = Color.White.copy(0.05f)
-                        )
+                        HorizontalDivider(Modifier.padding(vertical = 10.dp), color = Color.White.copy(0.05f))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                             Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Star, null, Modifier.size(12.dp), emeraldGreen)
-                                    Text(
-                                        " PLAN: ",
-                                        color = Color.White.copy(0.5f),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        sub["planName"].toString(),
-                                        color = Color.White,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                ) {
-                                    Icon(Icons.Filled.Payment, null, Modifier.size(12.dp), Color.Yellow)
-                                    Text(
-                                        " PAY: ",
-                                        color = Color.White.copy(0.5f),
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        paymentMethod,
-                                        color = Color.White.copy(0.8f),
-                                        fontSize = 11.sp
-                                    )
-                                    // Show stored price
-                                    if (planPrice.toInt() > 0) {
-                                        Text(
-                                            " • ₹$planPrice",
-                                            color = emeraldGreen,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
+                                Text("PLAN: ${sub["planName"]}", color = Color.White, fontSize = 12.sp)
+                                Text("AMOUNT PAID: ₹${totalPaid.toInt()}", color = emeraldGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
-
-                            // Show extend button for ALL subscriptions (active, expiring, and expired)
                             IconButton(
-                                onClick = { if (!isGlobalLoading) onExtend(sub) },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(
-                                        if (isExpired) Color.Red.copy(0.2f)
-                                        else if (isExpiring) Color(0xFFFF9800).copy(0.2f)
-                                        else emeraldGreen.copy(0.2f),
-                                        CircleShape
-                                    ),
-                                enabled = !isGlobalLoading
+                                onClick = { onExtend(sub) },
+                                modifier = Modifier.size(32.dp).background(
+                                    if (isExpired) Color.Red.copy(0.2f)
+                                    else if (isExpiring) Color(0xFFFF9800).copy(0.2f)
+                                    else emeraldGreen.copy(0.2f),
+                                    CircleShape
+                                )
                             ) {
                                 Icon(
-                                    Icons.Filled.AddCircle,
+                                    Icons.Default.AddCircle,
                                     null,
-                                    Modifier.size(16.dp),
+                                    Modifier.size(18.dp),
                                     if (isExpired) Color.Red
                                     else if (isExpiring) Color(0xFFFF9800)
                                     else emeraldGreen
@@ -656,6 +380,17 @@ private fun SubscriptionContent(
         }
     }
 }
+// Data class to hold payment info and prevent recomposition
+private data class PaymentInfo(
+    val amount: Number,
+    val method: String,
+    val transactionId: String,
+    val type: String,
+    val date: Date?,
+    val hasPayment: Boolean,
+    val paymentCount: Int,
+    val allPayments: List<Map<String, Any>>
+)
 
 @Composable
 private fun PlanDialog(

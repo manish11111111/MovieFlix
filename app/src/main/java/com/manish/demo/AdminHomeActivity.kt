@@ -161,56 +161,53 @@ class DashboardViewModel : ViewModel() {
     private val _stats = mutableStateOf(DashboardStats())
     val stats: State<DashboardStats> = _stats
 
-    private val dashEmerald = Color(0xFF2ECC71)
-
     init {
         startListening()
     }
 
     private fun startListening() {
-        // Local cache of planId -> price, updated by the plans listener
-        val planPriceCache = mutableMapOf<String, Double>()
-        // Local cache of subscription docs, updated by the subscriptions listener
-        var subsCache: List<com.google.firebase.firestore.DocumentSnapshot> = emptyList()
+        // Local caches for calculation
+        var paymentsCache: List<com.google.firebase.firestore.DocumentSnapshot> = emptyList()
 
-        // Helper: recalculate revenue + chart using the two caches — same join as SubscriptionViewModel
+        // Helper: Calculate revenue and trends from actual PAYMENTS collection
         fun recalculate() {
-            // Revenue: for each sub, look up plan price in cache (falls back to stored "price" field)
-            val totalRev = subsCache.sumOf { d ->
-                val planId = d.getString("planId") ?: ""
-                planPriceCache[planId]                              // joined plan price (same as subs tab)
-                    ?: (d.get("price") as? Number)?.toDouble()     // fallback: stored price field
-                    ?: 0.0
+            // 1. Total Revenue: Sum of all 'amount' fields in payments collection
+            val totalRev = paymentsCache.sumOf { d ->
+                (d.get("amount") as? Number)?.toDouble() ?: 0.0
             }
 
-            // Daily chart: last 7 days, using createdAt + same joined plan price
-            val sevenDaysAgo = Calendar.getInstance().apply {
-                add(Calendar.DAY_OF_YEAR, -6)
-                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-            }.time
+            // 2. Daily chart: Sum of 'amount' grouped by day for the last 7 days
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+
+            // Go back 6 days to get a 7-day window (including today)
+            cal.add(Calendar.DAY_OF_YEAR, -6)
+            val sevenDaysAgo = cal.time
 
             val dayTotals = mutableMapOf<Int, Float>()
-            subsCache.forEach { d ->
-                val ts = d.getTimestamp("createdAt") ?: d.getTimestamp("startDate")
+
+            paymentsCache.forEach { d ->
+                val ts = d.getTimestamp("createdAt")
                 ts?.let {
-                    val subDate = it.toDate()
-                    if (!subDate.before(sevenDaysAgo)) {
-                        val c = Calendar.getInstance().apply { time = subDate }
+                    val pDate = it.toDate()
+                    if (!pDate.before(sevenDaysAgo)) {
+                        val c = Calendar.getInstance().apply { time = pDate }
                         val dayKey = c.get(Calendar.DAY_OF_YEAR)
-                        val planId = d.getString("planId") ?: ""
-                        val price = (planPriceCache[planId]
-                            ?: (d.get("price") as? Number)?.toDouble()
-                            ?: 0.0).toFloat()
-                        dayTotals[dayKey] = (dayTotals[dayKey] ?: 0f) + price
+                        val amt = (d.get("amount") as? Number)?.toFloat() ?: 0f
+                        dayTotals[dayKey] = (dayTotals[dayKey] ?: 0f) + amt
                     }
                 }
             }
 
+            // Calculate chart heights (normalized 0.05f to 1.0f)
             val maxRevenue = dayTotals.values.maxOrNull()?.takeIf { it > 0 } ?: 1f
             val chartData = (6 downTo 0).map { i ->
                 val dayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
                 val dailySum = dayTotals[dayCal.get(Calendar.DAY_OF_YEAR)] ?: 0f
+                // Normalizing for the UI bar chart
                 (dailySum / maxRevenue).coerceAtLeast(0.05f)
             }
 
@@ -218,46 +215,28 @@ class DashboardViewModel : ViewModel() {
                 totalRevenue = totalRev,
                 weeklyRevenue = chartData
             )
-            Log.d("DASH_DEBUG", "Revenue recalculated: ₹$totalRev")
         }
 
-        // 1. LIVE SUMMARY STATS (users, movies, activeSubs from Dashboard_stats)
+        // 1. LIVE SUMMARY STATS (totalUsers, totalMovies, activeSubs)
         db.collection("Dashboard_stats")
-            .limit(1)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("DASH_DEBUG", "Stats Error: ${error.message}"); return@addSnapshotListener
+            .document("YbIkiRVdxGQqvza8K85i") // Use your specific doc ID if known
+            .addSnapshotListener { doc, error ->
+                if (error == null && doc != null) {
+                    _stats.value = _stats.value.copy(
+                        totalUsers = (doc.get("totalUsers") as? Number)?.toInt() ?: 0,
+                        totalMovies = (doc.get("totalMovies") as? Number)?.toInt() ?: 0,
+                        activeSubs = (doc.get("activeSubs") as? Number)?.toInt() ?: 0
+                    )
                 }
-                val doc = snapshot?.documents?.firstOrNull() ?: return@addSnapshotListener
-                _stats.value = _stats.value.copy(
-                    totalUsers = (doc.get("totalUsers") as? Number)?.toInt() ?: 0,
-                    totalMovies = (doc.get("totalMovies") as? Number)?.toInt() ?: 0,
-                    activeSubs = (doc.get("activeSubs") as? Number)?.toInt() ?: 0
-                )
             }
 
-        // 2. PLANS listener — keeps planPriceCache fresh, then recalculates revenue
-        db.collection("subscription_plans")
+        // 2. PAYMENTS Listener: This is the source of truth for Revenue
+        db.collection("payments")
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("DASH_DEBUG", "Plans Error: ${error.message}"); return@addSnapshotListener
+                if (error == null && snapshot != null) {
+                    paymentsCache = snapshot.documents
+                    recalculate()
                 }
-                planPriceCache.clear()
-                snapshot?.documents?.forEach { d ->
-                    val price = (d.get("price") as? Number)?.toDouble() ?: 0.0
-                    planPriceCache[d.id] = price
-                }
-                recalculate()
-            }
-
-        // 3. SUBSCRIPTIONS listener — keeps subsCache fresh, then recalculates revenue + chart
-        db.collection("subscriptions")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("DASH_DEBUG", "Subs Error: ${error.message}"); return@addSnapshotListener
-                }
-                subsCache = snapshot?.documents ?: emptyList()
-                recalculate()
             }
 
         // 3. LIVE ACTIVITY FEED
@@ -277,12 +256,13 @@ class DashboardViewModel : ViewModel() {
                             "role" -> Icons.Default.AdminPanelSettings
                             "plan" -> Icons.Default.SettingsSuggest
                             "security" -> Icons.Default.LockReset
+                            "payment" -> Icons.Default.AttachMoney // Added icon for payments
                             else -> Icons.Default.Notifications
                         },
                         color = when (type) {
                             "ban" -> Color.Red
                             "movie" -> Color.Cyan
-                            "sub" -> dashEmerald
+                            "sub", "payment" -> dashEmerald
                             "security", "plan" -> Color.Yellow
                             else -> Color.LightGray
                         }
