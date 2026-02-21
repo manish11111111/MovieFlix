@@ -1107,10 +1107,12 @@ fun UserApp(
         }
 
         // Overlays
+        // Find this block in UserApp:
         selectedMovie?.let { movie ->
             MovieDetailScreen(
                 movie = movie,
                 viewModel = sharedViewModel,
+                userName = userName, // <--- ADD THIS LINE
                 onClose = { selectedMovie = null },
                 onPlayClick = { playingMovie = it },
                 onNavigateToSubscription = {
@@ -2701,6 +2703,7 @@ fun UsersAlsoWatchedSection(
 fun MovieDetailScreen(
     movie: MovieItem,
     viewModel: UserHomeViewModel,
+    userName: String,
     onClose: () -> Unit,
     onPlayClick: (MovieItem) -> Unit,
     onNavigateToSubscription: () -> Unit = {}
@@ -2878,6 +2881,7 @@ fun MovieDetailScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Card(modifier = Modifier.fillMaxWidth().clickable {
                             showPlayOptionsDialog = false
+                            viewModel.markMovieAsWatched(movie.docId, movie.title, userName)
                             onPlayClick(movie)
                         }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2887,6 +2891,7 @@ fun MovieDetailScreen(
                         }
                         Card(modifier = Modifier.fillMaxWidth().clickable {
                             showPlayOptionsDialog = false
+                            viewModel.markMovieAsWatched(movie.docId, movie.title, userName)
                             onPlayClick(movie.copy(streamUrl = "exo_logic:gs://movieflix-fb904.firebasestorage.app/my_movie.mp4"))
                         }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

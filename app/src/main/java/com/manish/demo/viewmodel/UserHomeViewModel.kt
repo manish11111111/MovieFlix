@@ -1,5 +1,6 @@
 package com.manish.demo.viewmodel
 
+import com.google.firebase.firestore.FieldValue
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -537,5 +538,53 @@ class UserHomeViewModel : ViewModel() {
 
     fun clearSearch() {
         _searchResults.value = emptyList()
+    }
+    // Added 'userName' as a parameter here
+    fun markMovieAsWatched(movieId: String, movieTitle: String, userName: String) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val userRef = db.collection("users").document(uid)
+        val movieRef = db.collection("movies").document(movieId)
+
+        // ✅ Change this from 'watched_movies' to 'watchHistory' to match your listener
+        val watchRecordRef = userRef.collection("watchHistory").document(movieId)
+
+        val globalStatsRef = db.collection("Dashboard_stats").document("YbIkiRVdxGQqvza8K85i")
+
+        watchRecordRef.get().addOnSuccessListener { snapshot ->
+            if (!snapshot.exists()) {
+                val batch = db.batch()
+
+                // 1. Create the unique record
+                batch.set(watchRecordRef, mapOf(
+                    "movieId" to movieId,
+                    "title" to movieTitle,
+                    "watchedAt" to FieldValue.serverTimestamp()
+                ))
+
+                // 2. Increment User's total unique watch count (The number shown in HomeActivity1)
+                // This triggers your 'watchHistory' listener in fetchUserStats()
+                batch.update(userRef, "watchCount", FieldValue.increment(1))
+
+                // 3. Increment Movie's global views
+                batch.update(movieRef, "totalViews", FieldValue.increment(1))
+
+                // 4. Increment Global Dashboard Stat
+                batch.update(globalStatsRef, "totalWatches", FieldValue.increment(1))
+
+                // 5. Log Activity for Admin
+                val activityRef = db.collection("activities").document()
+                batch.set(activityRef, mapOf(
+                    "title" to "$userName started watching $movieTitle",
+                    "type" to "movie",
+                    "timestamp" to FieldValue.serverTimestamp()
+                ))
+
+                batch.commit().addOnSuccessListener {
+                    Log.d("WatchLogic", "User stats updated! Home screen should refresh.")
+                }
+            } else {
+                Log.d("WatchLogic", "Already watched. No UI update needed.")
+            }
+        }
     }
 }
