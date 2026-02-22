@@ -208,6 +208,8 @@ class DashboardViewModel : ViewModel() {
             cal.add(Calendar.DAY_OF_YEAR, -6)
             val sevenDaysAgo = cal.time
 
+            // ... inside recalculateRevenue()
+
             val dayTotals = mutableMapOf<Int, Float>()
             paymentsCache.forEach { d ->
                 val ts = d.getTimestamp("createdAt")
@@ -215,7 +217,11 @@ class DashboardViewModel : ViewModel() {
                     val pDate = it.toDate()
                     if (!pDate.before(sevenDaysAgo)) {
                         val c = Calendar.getInstance().apply { time = pDate }
-                        val dayKey = c.get(Calendar.DAY_OF_YEAR)
+                        // SOLUTION: Combine Year and Day of Year for a unique key
+                        val year = c.get(Calendar.YEAR)
+                        val dayOfYear = c.get(Calendar.DAY_OF_YEAR)
+                        val dayKey = year * 1000 + dayOfYear // e.g., 2024053 for the 53rd day of 2024
+
                         val amt = (d.get("amount") as? Number)?.toFloat() ?: 0f
                         dayTotals[dayKey] = (dayTotals[dayKey] ?: 0f) + amt
                     }
@@ -225,9 +231,17 @@ class DashboardViewModel : ViewModel() {
             val maxRevenue = dayTotals.values.maxOrNull()?.takeIf { it > 0 } ?: 1f
             val chartData = (6 downTo 0).map { i ->
                 val dayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }
-                val dailySum = dayTotals[dayCal.get(Calendar.DAY_OF_YEAR)] ?: 0f
+
+                // Also use the new key format for lookup
+                val year = dayCal.get(Calendar.YEAR)
+                val dayOfYear = dayCal.get(Calendar.DAY_OF_YEAR)
+                val dayKey = year * 1000 + dayOfYear
+
+                val dailySum = dayTotals[dayKey] ?: 0f
                 (dailySum / maxRevenue).coerceAtLeast(0.05f)
             }
+
+// ... rest of the function
 
             _stats.value = _stats.value.copy(
                 totalRevenue = totalRev,

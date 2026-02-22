@@ -231,7 +231,7 @@ import com.manish.demo.ui.components.CustomToastCompose
 import com.manish.demo.ui.components.ImageSelectionDialog
 import com.manish.demo.ui.theme.DemoTheme
 import com.manish.demo.viewmodel.MovieItem
-import com.manish.demo.viewmodel.UserHomeViewModel
+import com.manish.demo.viewmodel.EnhancedUserHomeViewModel
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.text.SimpleDateFormat
@@ -842,7 +842,7 @@ fun UserApp(
     var playingMovie by remember { mutableStateOf<MovieItem?>(null) }
 
     // ✅ Shared ViewModel instance for proper watch count tracking
-    val sharedViewModel: UserHomeViewModel = viewModel()
+    val sharedViewModel: EnhancedUserHomeViewModel = viewModel()
 
     val context = LocalContext.current
     val activity = context as? Activity
@@ -1411,20 +1411,20 @@ fun UserApp(
 }
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserHomeContent(
     userName: String,
-    viewModel: UserHomeViewModel,
+    viewModel: EnhancedUserHomeViewModel,  // ← Updated type
     onMovieClick: (MovieItem) -> Unit,
     onNavigateToFavorites: () -> Unit,
     onNavigateToSubscription: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Use content-based recommendations for dashboard
+    val contentBasedRecs by viewModel.contentBasedRecs.collectAsState()
     val topRatedMovies by viewModel.topRatedMovies.collectAsState()
     val newlyAddedMovies by viewModel.newlyAddedMovies.collectAsState()
     val genreSections by viewModel.genreSections.collectAsState()
-    val recommendedMovies by viewModel.recommendedMovies.collectAsState() // ✅ ADD THIS
     val searchResults by viewModel.searchResults.collectAsState()
     val isLoadingMovies by viewModel.isLoading.collectAsState()
     val userStats by viewModel.userStats.collectAsState()
@@ -1439,7 +1439,7 @@ fun UserHomeContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Search Bar Loop (Always visible)
+            // Search Bar
             item {
                 Column(modifier = Modifier
                     .fillMaxWidth()
@@ -1504,7 +1504,7 @@ fun UserHomeContent(
                             UserStatCard(
                                 modifier = Modifier.weight(1f),
                                 title = "Watched",
-                                value = "${userStats.watchCount}", // ✅ Just show watch count (totalViews tracked in backend)
+                                value = "${userStats.watchCount}",
                                 icon = Icons.Default.PlayCircle,
                                 color = Color.Cyan
                             )
@@ -1520,9 +1520,30 @@ fun UserHomeContent(
                         }
                     }
                 }
-            }
 
-            if (searchQuery.isNotEmpty()) {
+                // ✅ CONTENT-BASED RECOMMENDATIONS - On Dashboard
+                if (contentBasedRecs.isNotEmpty()) {
+                    item {
+                        MovieSection(
+                            "🎯 Recommended For You",
+                            contentBasedRecs,
+                            onMovieClick
+                        )
+                    }
+                }
+
+                // Other sections
+                if (topRatedMovies.isNotEmpty()) item {
+                    MovieSection("⭐ Top Rated", topRatedMovies, onMovieClick)
+                }
+                if (newlyAddedMovies.isNotEmpty()) item {
+                    MovieSection("🆕 Newly Added", newlyAddedMovies, onMovieClick)
+                }
+                items(genreSections) { genre ->
+                    MovieSection(genre.name, genre.movies, onMovieClick)
+                }
+            } else {
+                // Search results...
                 if (searchResults.isNotEmpty()) {
                     item {
                         Text(
@@ -1539,12 +1560,9 @@ fun UserHomeContent(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(searchResults) { movie ->
-                                NetflixMovieCard(
-                                    movie = movie,
-                                    onClick = { onMovieClick(movie) })
+                                NetflixMovieCard(movie = movie, onClick = { onMovieClick(movie) })
                             }
                         }
-                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 } else {
                     item {
@@ -1561,59 +1579,22 @@ fun UserHomeContent(
                                     tint = Color.White.copy(0.3f),
                                     modifier = Modifier.size(80.dp)
                                 )
-                                Spacer(Modifier.height(16.dp))
-                                Text(
-                                    "No match found",
-                                    color = Color.White.copy(0.6f),
-                                    fontSize = 20.sp
-                                )
+                                Text("No match found", color = Color.White.copy(0.6f))
                             }
                         }
                     }
                 }
-            } else {
-                // ✅ CONTENT-BASED FILTERING: Personalized Recommendations
-                if (recommendedMovies.isNotEmpty()) item {
-                    MovieSection(
-                        "🎯 Recommended For You",
-                        recommendedMovies,
-                        onMovieClick
-                    )
-                }
+            }
 
-                if (topRatedMovies.isNotEmpty()) item {
-                    MovieSection(
-                        "⭐ Top Rated",
-                        topRatedMovies,
-                        onMovieClick
-                    )
-                }
-                if (newlyAddedMovies.isNotEmpty()) item {
-                    MovieSection(
-                        "🆕 Newly Added",
-                        newlyAddedMovies,
-                        onMovieClick
-                    )
-                }
-                items(genreSections) { genre ->
-                    MovieSection(
-                        genre.name,
-                        genre.movies,
-                        onMovieClick
-                    )
-                }
-                if (isLoadingMovies) item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) { CircularProgressIndicator(color = emeraldGreen) }
+            if (isLoadingMovies) item {
+                Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
+                    CircularProgressIndicator(color = emeraldGreen)
                 }
             }
         }
     }
 }
+
 
 
 @Composable
@@ -2480,7 +2461,7 @@ fun UsersAlsoWatchedSection(
     movieId: String,
     onMovieClick: (MovieItem) -> Unit
 ) {
-    val viewModel: UserHomeViewModel = viewModel()
+    val viewModel: EnhancedUserHomeViewModel = viewModel()
     var alsoWatchedMovies by remember { mutableStateOf<List<MovieItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -2568,12 +2549,12 @@ fun UsersAlsoWatchedSection(
 @Composable
 fun MovieDetailScreen(
     movie: MovieItem,
-    viewModel: UserHomeViewModel,
+    viewModel: EnhancedUserHomeViewModel,  // ← Updated type
     userName: String,
     onClose: () -> Unit,
     onPlayClick: (MovieItem) -> Unit,
     onNavigateToSubscription: () -> Unit = {},
-    onAlsoWatchedClick: (MovieItem) -> Unit  // ✅ ADD THIS NEW PARAMETER
+    onAlsoWatchedClick: (MovieItem) -> Unit
 ) {
     val emeraldGreen = Color(0xFF2ECC71)
     val db = FirebaseFirestore.getInstance()
@@ -2586,7 +2567,11 @@ fun MovieDetailScreen(
     var hasActiveSubscription by remember { mutableStateOf(false) }
     var showSubscriptionDialog by remember { mutableStateOf(false) }
 
-    // ✅ Original Subscription Check logic
+    // State for collaborative recommendations
+    var collaborativeRecs by remember { mutableStateOf<List<MovieItem>>(emptyList()) }
+    var isLoadingRecs by remember { mutableStateOf(true) }
+
+    // Subscription check
     LaunchedEffect(currentUserId) {
         if (currentUserId != null) {
             db.collection("subscriptions")
@@ -2602,7 +2587,7 @@ fun MovieDetailScreen(
         }
     }
 
-    // ✅ Original Favorites Check logic
+    // Favorites check
     LaunchedEffect(movie.docId) {
         if (currentUserId != null) {
             db.collection("users").document(currentUserId)
@@ -2614,7 +2599,13 @@ fun MovieDetailScreen(
         }
     }
 
-    // ✅ All your original Helper Functions (Toggle, Share, Trailer)
+    // ✅ COLLABORATIVE FILTERING - Load "Users Also Watched"
+    LaunchedEffect(movie.docId) {
+        isLoadingRecs = true
+        collaborativeRecs = viewModel.fetchUsersAlsoWatched(movie.docId)
+        isLoadingRecs = false
+    }
+
     fun toggleFavorite() {
         if (currentUserId == null) return
         val favRef = db.collection("users").document(currentUserId).collection("favorites").document(movie.docId)
@@ -2649,7 +2640,7 @@ fun MovieDetailScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                // Header UI: Backdrop & Poster
+                // Header UI: Backdrop & Poster (keep your existing code)
                 Box(modifier = Modifier.fillMaxWidth().height(380.dp)) {
                     SubcomposeAsyncImage(
                         model = movie.backdrop.ifEmpty { movie.poster },
@@ -2704,7 +2695,7 @@ fun MovieDetailScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // All Original Action Icons
+                    // Action Icons
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { toggleFavorite() }) {
                             Icon(imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null, tint = if (isFavorite) Color.Red else Color.White)
@@ -2732,21 +2723,79 @@ fun MovieDetailScreen(
                 }
             }
 
-            // ✅ UPDATED: Users Also Watched Section with proper navigation
+            // ✅ COLLABORATIVE FILTERING SECTION - Users Also Watched (Item-Based CF)
             item {
-                UsersAlsoWatchedSection(
-                    movieId = movie.docId,
-                    onMovieClick = { clickedMovie ->
-                        // First close current detail
-                        onClose()
-                        // Then tell parent to open the clicked movie
-                        onAlsoWatchedClick(clickedMovie)
+                if (isLoadingRecs) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = emeraldGreen)
                     }
-                )
+                } else if (collaborativeRecs.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Icon showing it's collaborative filtering
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(Color(0xFF3498DB).copy(0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.People,
+                                    contentDescription = null,
+                                    tint = Color(0xFF3498DB),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Users Also Watched",
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Collaborative Filtering",
+                                    color = Color(0xFF3498DB),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(collaborativeRecs) { recMovie ->
+                                NetflixMovieCard(
+                                    movie = recMovie,
+                                    onClick = {
+                                        // Close current and open selected movie
+                                        onClose()
+                                        onAlsoWatchedClick(recMovie)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // ✅ Updated Play Dialog with your specific hardcoded link
+        // Play Options Dialog
         if (showPlayOptionsDialog) {
             AlertDialog(
                 onDismissRequest = { showPlayOptionsDialog = false },
@@ -2756,7 +2805,7 @@ fun MovieDetailScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Card(modifier = Modifier.fillMaxWidth().clickable {
                             showPlayOptionsDialog = false
-                            viewModel.markMovieAsWatched(movie.docId, movie.title, userName)
+                            viewModel.trackMovieWatch(movie.docId, movie.title, userName)
                             onPlayClick(movie)
                         }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2766,7 +2815,7 @@ fun MovieDetailScreen(
                         }
                         Card(modifier = Modifier.fillMaxWidth().clickable {
                             showPlayOptionsDialog = false
-                            viewModel.markMovieAsWatched(movie.docId, movie.title, userName)
+                            viewModel.trackMovieWatch(movie.docId, movie.title, userName)
                             onPlayClick(movie.copy(streamUrl = "exo_logic:gs://movieflix-fb904.firebasestorage.app/my_movie.mp4"))
                         }, colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.1f))) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2781,6 +2830,7 @@ fun MovieDetailScreen(
             )
         }
 
+        // Subscription Dialog
         if (showSubscriptionDialog) {
             AlertDialog(
                 onDismissRequest = { showSubscriptionDialog = false },
