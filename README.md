@@ -143,17 +143,17 @@ Manual test cases performed during development (all passed):
 
 | # | Test Case | Result |
 |---|---|---|
-| 1 | User registration & login (email verification) | ✅ Pass |
-| 2 | Complete user profile | ✅ Pass |
-| 3 | Browse & search movies | ✅ Pass |
-| 4 | Video playback (ExoPlayer) | ✅ Pass |
-| 5 | Purchase subscription via eSewa | ✅ Pass |
-| 6 | Subscription access control (full movie vs. trailer) | ✅ Pass |
-| 7 | Add / remove favourites | ✅ Pass |
-| 8 | Admin add movie (TMDb API) | ✅ Pass |
-| 9 | Admin ban / unban user | ✅ Pass |
-| 10 | Role-based access control | ✅ Pass |
-| 11 | Reset password | ✅ Pass |
+| 1 | User registration & login (email verification) |  Pass |
+| 2 | Complete user profile |  Pass |
+| 3 | Browse & search movies |  Pass |
+| 4 | Video playback (ExoPlayer) |  Pass |
+| 5 | Purchase subscription via eSewa |  Pass |
+| 6 | Subscription access control (full movie vs. trailer) |  Pass |
+| 7 | Add / remove favourites |  Pass |
+| 8 | Admin add movie (TMDb API) |  Pass |
+| 9 | Admin ban / unban user |  Pass |
+| 10 | Role-based access control |  Pass |
+| 11 | Reset password |  Pass |
 
 ---
 
