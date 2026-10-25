@@ -1,4 +1,4 @@
-# 🎬 MovieFlix – A Movie Streaming App
+# MovieFlix – A Movie Streaming App
 
 MovieFlix is a feature-rich Android OTT (Over-The-Top) streaming application built with **Kotlin** and **Jetpack Compose**. It provides a complete video-on-demand experience with subscription management and **eSewa** payment integration, so users in Nepal can subscribe without needing an international credit card. The app has a dual-interface design: one for regular **users** and one for **administrators**.
 
@@ -6,7 +6,7 @@ MovieFlix is a feature-rich Android OTT (Over-The-Top) streaming application bui
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
@@ -21,9 +21,9 @@ MovieFlix is a feature-rich Android OTT (Over-The-Top) streaming application bui
 
 ---
 
-## ✨ Features
+## Features
 
-### 👤 User Features
+###  User Features
 - **Authentication** – Email/password sign-up with email verification, Google sign-in, and password reset via Firebase.
 - **Profile management** – Complete profile (name, phone, DOB) with custom profile image upload.
 - **Movie browsing** – Real-time catalogue with search, filters, and categories (All, Top Rated, Newly Added, Recommended).
@@ -34,7 +34,7 @@ MovieFlix is a feature-rich Android OTT (Over-The-Top) streaming application bui
 - **Watch history** – Tracks watched movies.
 - **Personalized recommendations** – Content-based and collaborative filtering ("Recommended For You", "Users Also Watched").
 
-### 🛠️ Admin Features
+###  Admin Features
 - **Real-time dashboard** – Total users, active subscriptions, movies, revenue, and a 7-day revenue chart.
 - **Movie management** – Add movies by searching TMDb (auto-populates poster, description, rating, genres), edit, and delete.
 - **User management** – View users, change roles, ban/unban (with forced logout).
@@ -44,7 +44,7 @@ MovieFlix is a feature-rich Android OTT (Over-The-Top) streaming application bui
 
 ---
 
-## 🧰 Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -59,7 +59,7 @@ MovieFlix is a feature-rich Android OTT (Over-The-Top) streaming application bui
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 MovieFlix follows a client–server model where the Android app is the client and Firebase is the backend.
 
@@ -80,7 +80,7 @@ The Firestore data model is relational in spirit, connecting **users**, **subscr
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - [Android Studio](https://developer.android.com/studio) (latest stable)
@@ -102,7 +102,7 @@ cd MovieFlix
 
 ---
 
-## ⚙️ Configuration
+##  Configuration
 
 ### 1. Firebase
 1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
@@ -137,7 +137,7 @@ Select a device/emulator and press **Run ▶** in Android Studio.
 
 ---
 
-## ✅ Testing
+##  Testing
 
 Manual test cases performed during development (all passed):
 
@@ -157,7 +157,7 @@ Manual test cases performed during development (all passed):
 
 ---
 
-## 📌 Project Scope & Limitations
+##  Project Scope & Limitations
 
 - Android only – no iOS, web, or TV versions.
 - Video content is streamed from external sources (e.g., Firebase Storage) rather than self-hosted servers.
@@ -167,7 +167,7 @@ Manual test cases performed during development (all passed):
 
 ---
 
-## 🔮 Future Work
+##  Future Work
 
 - **Offline downloads** using ExoPlayer's `DownloadManager` with automatic expiry for subscription content.
 - **Multi-user profiles** with separate watch history and PIN-protected parental controls.
@@ -178,7 +178,7 @@ Manual test cases performed during development (all passed):
 
 ---
 
-## 👥 Team
+##  Team
 
 | Name | Roll No. |
 |---|---|
@@ -191,7 +191,7 @@ Manual test cases performed during development (all passed):
 
 ---
 
-## ⚖️ License & Legal Notes
+##  License & Legal Notes
 
 - This project was built for **educational purposes**. Add a `LICENSE` file that matches how you want others to use the code.
 - Demo content uses sample / public-domain videos. Any commercial deployment requires proper **licensing agreements** with content owners.
